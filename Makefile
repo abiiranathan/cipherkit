@@ -5,10 +5,8 @@
 # Created on: 2024-09-29
 #
 # Install dependencies using 
-# `sudo apt-get install build-essential libssl-dev libsodium-dev libz-dev libssl-dev libssl-dev libssl-dev libjosn-c-dev`
+# `sudo apt-get install build-essential libssl-dev libsodium-dev libz-dev libssl-dev libssl-dev libssl-dev libcjson-dev`
 #
-# on debian-based systems. 
-# On Arch-based systems, use `sudo pacman -S base-devel openssl libsodium zlib json-c`
 #
 # Install the library using `sudo make install`
 # Uninstall the library using `sudo make uninstall`
@@ -20,7 +18,7 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -Werror -pedantic -Wno-format-truncation -std=c23 -O3 
 LDFLAGS=-lm -lssl -lcrypto -lsodium -lz -lcjson -lpthread
-LIB=cipherkit
+LIB=libcipherkit
 
 SRC=crypto.c gzip.c jwt.c
 HEADERS=cipherkit.h crypto.h gzip.h jwt.h logging.h
@@ -28,7 +26,7 @@ OBJ=$(addprefix obj/, $(SRC:.c=.o))
 
 # Installation paths
 INSTALL_PREFIX=/usr/local
-HEADER_DIR=$(INSTALL_PREFIX)/include/$(LIB)
+HEADER_DIR=$(INSTALL_PREFIX)/include/cipherkit
 LIB_DIR=$(INSTALL_PREFIX)/lib
 PKG_CONFIG_DIR=$(LIB_DIR)/pkgconfig
 
