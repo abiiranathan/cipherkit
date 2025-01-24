@@ -18,7 +18,8 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -Werror -pedantic -Wno-format-truncation -std=c23 -O3 
 LDFLAGS=-lm -lssl -lcrypto -lsodium -lz -lcjson -lpthread
-LIB=libcipherkit
+NAME=cipherkit
+LIB=lib$(NAME)
 
 SRC=crypto.c gzip.c jwt.c
 HEADERS=cipherkit.h crypto.h gzip.h jwt.h logging.h
@@ -26,7 +27,7 @@ OBJ=$(addprefix obj/, $(SRC:.c=.o))
 
 # Installation paths
 INSTALL_PREFIX=/usr/local
-HEADER_DIR=$(INSTALL_PREFIX)/include/cipherkit
+HEADER_DIR=$(INSTALL_PREFIX)/include/$(NAME)
 LIB_DIR=$(INSTALL_PREFIX)/lib
 PKG_CONFIG_DIR=$(LIB_DIR)/pkgconfig
 
@@ -55,13 +56,13 @@ install: $(LIB).a $(LIB).so
 
 	# copy pkg-config file
 	mkdir -p $(PKG_CONFIG_DIR)
-	cp $(LIB).pc $(PKG_CONFIG_DIR)
+	cp $(NAME).pc $(PKG_CONFIG_DIR)
 
 uninstall:
 	rm -rf $(LIB_DIR)/$(LIB).a
 	rm -rf $(LIB_DIR)/$(LIB).so
 	rm -rf $(HEADER_DIR)
-	rm -rf $(PKG_CONFIG_DIR)/$(LIB).pc
+	rm -rf $(PKG_CONFIG_DIR)/$(NAME).pc
 
 test: $(LIB).a $(LIB).so
 	$(CC) -o gzip_test tests/gzip_test.c $(LIB).a $(CFLAGS) $(LDFLAGS)
