@@ -5,7 +5,6 @@
 extern "C" {
 #endif
 
-#include <stdio.h>
 #include <stdlib.h>
 
 // If clang is used, use the below pragma to disable the warning about zero variadic arguments.
@@ -16,7 +15,8 @@ extern "C" {
 #endif
 
 #define LOG_BASE(stream, level, fmt, ...)                                                          \
-  fprintf(stream, "[" level "]: %s:%d:%s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+    fprintf(stream, "[" level "]: %s:%d:%s(): " fmt "\n", __FILE__, __LINE__, __func__,            \
+            ##__VA_ARGS__)
 
 #define LOG_ERROR(fmt, ...) LOG_BASE(stderr, "ERROR", fmt, ##__VA_ARGS__)
 #define LOG_WARN(fmt, ...) LOG_BASE(stderr, "WARN", fmt, ##__VA_ARGS__)
@@ -25,18 +25,18 @@ extern "C" {
 
 // Log fatal errors and exit the program.
 #define LOG_FATAL(fmt, ...)                                                                        \
-  do {                                                                                             \
-    LOG_ERROR(fmt, ##__VA_ARGS__);                                                                 \
-    exit(EXIT_FAILURE);                                                                            \
-  } while (0)
+    do {                                                                                           \
+        LOG_ERROR(fmt, ##__VA_ARGS__);                                                             \
+        exit(EXIT_FAILURE);                                                                        \
+    } while (0)
 
 // Verbose ASSERT macro.
 #define LOG_ASSERT(condition, fmt, ...)                                                            \
-  do {                                                                                             \
-    if (!(condition)) {                                                                            \
-      LOG_FATAL("Assertion failed: " #condition " " fmt, ##__VA_ARGS__);                           \
-    }                                                                                              \
-  } while (0)
+    do {                                                                                           \
+        if (!(condition)) {                                                                        \
+            LOG_FATAL("Assertion failed: " #condition " " fmt, ##__VA_ARGS__);                     \
+        }                                                                                          \
+    } while (0)
 
 #ifdef __clang__
 #pragma clang diagnostic pop

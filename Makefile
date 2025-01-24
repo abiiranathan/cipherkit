@@ -15,7 +15,7 @@
 # NB: You need to have `valgrind` installed to run memory checks
 # ===============================================================================
 
-CC=gcc
+CC=clang
 CFLAGS=-Wall -Wextra -Werror -pedantic -Wno-format-truncation -std=c23 -O3 
 LDFLAGS=-lm -lssl -lcrypto -lsodium -lz -lcjson -lpthread
 NAME=cipherkit

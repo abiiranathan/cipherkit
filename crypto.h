@@ -10,17 +10,10 @@ extern "C" {
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 #include <sodium.h>
-#include <stdbool.h>
 
 // Constants for the crypto library
 #define CRYPTO_SALT_LENGTH crypto_pwhash_SALTBYTES
 #define CRYPTO_HASH_LENGTH crypto_pwhash_STRBYTES
-
-// Initializes the crypto library.
-void crypto_init(void);
-
-// Cleans up the crypto library.
-void crypto_cleanup(void);
 
 // uses libsoodium to generate a cryptographically secure random key.
 // Returns a pointer to a string containing the null-terminated key.
@@ -101,8 +94,8 @@ uint8_t crypto_random_uint8(void);
 #define STATE_VECTOR_M 397 /* changes to STATE_VECTOR_LENGTH also require changes to this */
 
 typedef struct tagMTRand {
-  uint32_t mt[STATE_VECTOR_LENGTH];
-  int32_t index;
+    uint32_t mt[STATE_VECTOR_LENGTH];
+    int32_t index;
 } MTRand;
 
 // Initializes the Mersenne Twister random number generator with the given seed.

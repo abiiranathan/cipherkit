@@ -5,28 +5,27 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
 #include <stddef.h>
 
 // JWT Payload struct definition
 typedef struct {
-  char sub[256];      // Subject representing the user ID
-  unsigned long exp;  // Expiration time as a UNIX timestamp
-  char data[256];     // JSON data representing the user data
+    char sub[256];      // Subject representing the user ID
+    unsigned long exp;  // Expiration time as a UNIX timestamp
+    char data[256];     // JSON data representing the user data
 } JWTPayload;
 
 // Error codes
 typedef enum {
-  JWT_SUCCESS = 0,
-  JWT_ERROR_INVALID_INPUT,
-  JWT_ERROR_MEMORY_ALLOCATION,
-  JWT_ERROR_HMAC_CREATION,
-  JWT_ERROR_BASE64_ENCODING,
-  JWT_ERROR_BASE64_DECODING,
-  JWT_ERROR_JSON_PARSING,
-  JWT_ERROR_INVALID_FORMAT,
-  JWT_ERROR_SIGNATURE_MISMATCH,
-  JWT_ERROR_TOKEN_EXPIRED
+    JWT_SUCCESS = 0,
+    JWT_ERROR_INVALID_INPUT,
+    JWT_ERROR_MEMORY_ALLOCATION,
+    JWT_ERROR_HMAC_CREATION,
+    JWT_ERROR_BASE64_ENCODING,
+    JWT_ERROR_BASE64_DECODING,
+    JWT_ERROR_JSON_PARSING,
+    JWT_ERROR_INVALID_FORMAT,
+    JWT_ERROR_SIGNATURE_MISMATCH,
+    JWT_ERROR_TOKEN_EXPIRED
 } jwt_error_t;
 
 const char* jwt_error_string(jwt_error_t error);

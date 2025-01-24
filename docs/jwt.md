@@ -10,7 +10,9 @@ This C library provides utilities to create, verify, and parse JSON Web Tokens (
 - Provides detailed error handling with descriptive error codes.
 
 ## Installation
+
 ## Installation
+
 See the [main README](../README.md) for installation instructions.
 
 ## API Documentation
@@ -76,7 +78,7 @@ Generates a JWT for the provided payload using the given secret.
   - `out_token`: A pointer to the buffer that will contain the generated token. The buffer is allocated by the function and must be freed by the caller.
 - **Returns**: `JWT_SUCCESS` on success, or an error code on failure.
 
-*Note*: The caller is responsible for freeing the `out_token` buffer.
+_Note_: The caller is responsible for freeing the `out_token` buffer.
 
 ### JWT Token Verification
 
@@ -112,17 +114,17 @@ Parses the payload of a JWT without verifying its signature.
 
 int main() {
     JWTPayload payload = { "user123", 1699999999, "{\"role\":\"admin\"}" };
-    char* token = NULL;
-    
+    char* token = nullptr;
+
     jwt_error_t result = jwt_token_create(&payload, "mysecretkey", &token);
-    
+
     if (result == JWT_SUCCESS) {
         printf("JWT Token: %s\n", token);
         free(token);
     } else {
         printf("Error creating JWT: %s\n", jwt_error_string(result));
     }
-    
+
     return 0;
 }
 ```
@@ -136,9 +138,9 @@ int main() {
 int main() {
     const char* token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";  // Example JWT token
     JWTPayload payload;
-    
+
     jwt_error_t result = jwt_token_verify(token, "mysecretkey", &payload);
-    
+
     if (result == JWT_SUCCESS) {
         printf("Token verified successfully!\n");
         printf("Subject: %s\n", payload.sub);
@@ -147,13 +149,14 @@ int main() {
     } else {
         printf("JWT verification failed: %s\n", jwt_error_string(result));
     }
-    
+
     return 0;
 }
 ```
 
 ## License
-This library is licensed under the MIT License. 
+
+This library is licensed under the MIT License.
 You are free to use, modify, and distribute this code, provided that you include attribution to the original author(s).
 
 Make sure to comply with the licenses of any third-party libraries used in conjunction with this code.

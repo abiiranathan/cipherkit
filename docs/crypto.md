@@ -2,7 +2,10 @@
 
 This module provides cryptographic functions for generating cryptographically secure random numbers, password hashing, key generation, encryption, decryption, and random number generation using different algorithms like ChaCha20, Mersenne Twister, and Argon2id.
 
+It uses the C23 features like boolean, nullptr, constexpr.
+
 ## Table of Contents
+
 - [Crypto Module Documentation](#crypto-module-documentation)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
@@ -28,31 +31,17 @@ This module provides cryptographic functions for generating cryptographically se
   - [License](#license)
 
 ## Installation
+
 See the [main README](../README.md) for installation instructions.
 
-## Initialization and Cleanup
-
-Before using the cryptographic functions, you must initialize the cryptographic library. At the end of your application, you should clean up resources.
-
-### Functions:
-- **`void crypto_init(void);`**  
-  Initializes the cryptographic library (i.e., libsodium and OpenSSL). Must be called before using any cryptographic operations.
-
-- **`void crypto_cleanup(void);`**  
-  Cleans up any resources used by the cryptographic library.
-
-### Usage:
-```c
-crypto_init();
-// Use cryptographic functions...
-crypto_cleanup();
-```
+The library is automatically initialized and cleaned up.
 
 ## Key Generation
 
 This library supports generating cryptographically secure keys using libsodium.
 
 ### Functions:
+
 - **`char* crypto_generate_key(const char* master_password);`**  
   Generates a cryptographically secure random key based on the provided master password. It is the caller's responsibility to free the memory.
 
@@ -60,6 +49,7 @@ This library supports generating cryptographically secure keys using libsodium.
   Verifies if the provided key matches the master password.
 
 ### Usage:
+
 ```c
 char* key = crypto_generate_key("my_master_password");
 // Use the key...
@@ -71,6 +61,7 @@ free(key);
 The library supports encryption and decryption of data using a cryptographic key.
 
 ### Functions:
+
 - **`uint8_t* crypto_encrypt(const uint8_t* data, size_t data_len, size_t* out_len, const unsigned char* secret_key);`**  
   Encrypts the given plaintext or binary data using the provided secret key. The length of the encrypted data is stored in `out_len`. Returns a heap-allocated pointer to the ciphertext or `NULL` on error.
 
@@ -80,6 +71,7 @@ The library supports encryption and decryption of data using a cryptographic key
 Because the encrypted data may contain null bytes, the length of the encrypted data is stored separately from the data itself. No assumption is made about null-termination.
 
 ### Usage:
+
 ```c
 size_t encrypted_len, decrypted_len;
 uint8_t* encrypted_data = crypto_encrypt(plaintext_data, plaintext_len, &encrypted_len, secret_key);
@@ -127,6 +119,7 @@ This library provides multiple methods to generate random numbers using both cry
   Generates a random 32-bit unsigned integer between the specified `min` and `max`.
 
 ### Usage:
+
 ```c
 uint8_t random_bytes[16];
 crypto_random_bytes(random_bytes, 16);
@@ -140,6 +133,7 @@ uint32_t rand_num = crypto_genRandLong(&mt_rand);
 The library supports secure password hashing using the Argon2id algorithm from libsodium.
 
 ### Functions:
+
 - **`bool crypto_password_hash(const char* password, char hash[CRYPTO_HASH_LENGTH]);`**  
   Generates a password hash using the Argon2id algorithm. Returns `true` on success, `false` on failure.
 
@@ -147,6 +141,7 @@ The library supports secure password hashing using the Argon2id algorithm from l
   Verifies if the given password matches the hash.
 
 ### Usage:
+
 ```c
 char hash[CRYPTO_HASH_LENGTH];
 crypto_password_hash("my_password", hash);
@@ -159,6 +154,7 @@ bool is_valid = crypto_password_verify("my_password", hash);
 This library provides functions to encode and decode data using Base64, which is useful for storing and transmitting binary data like cryptographic keys.
 
 ### Functions:
+
 - **`char* crypto_base64_encode(uint8_t* data, size_t data_len);`**  
   Encodes raw bytes into a Base64 string. The caller is responsible for freeing the returned string.
 
@@ -166,6 +162,7 @@ This library provides functions to encode and decode data using Base64, which is
   Decodes a Base64 string back into raw bytes. The caller is responsible for freeing the returned buffer.
 
 ### Usage:
+
 ```c
 char* encoded = crypto_base64_encode(key_data, key_data_len);
 uint8_t* decoded = crypto_base64_decode(encoded, &decoded_len);
@@ -177,5 +174,5 @@ More examples can be found in the tests directory.
 See the [crypto_test.c](../tests/crypto_test.c) for more examples.
 
 ## License
-MIT
 
+MIT

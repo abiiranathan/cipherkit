@@ -1,7 +1,7 @@
 # cipherkit
 
 A collection of fast and secure cryptographic algorithms implemented in C on top of OpenSSL and Libsodium.
- 
+
 ## API Documentation
 
 1. [crypto](docs/crypto.md)
@@ -17,11 +17,13 @@ sudo apt-get install libssl-dev libsodium-dev zlib1g-dev pkg-config libjson-c-de
 ```
 
 On Arch Linux:
+
 ```bash
 sudo pacman -S openssl libsodium zlib pkg-config json-c make
 ```
 
 Compile the library:
+
 ```bash
 git clone githttps://github.com/abiiranathan/cipherkit.git
 cd cipherkit
@@ -34,16 +36,19 @@ sudo make install
 ```
 
 ## Linking
+
 ```bash
 gcc -o example example.c `pkg-config --cflags --libs cipherkit`
 ```
 
 ## Running Tests
+
 ```bash
 make test
 ```
 
 ## Memory Leak Check
+
 ```bash
 make memcheck
 ```
@@ -62,7 +67,7 @@ int main() {
     // Generate a cryptographic key from a master password
     const char* master_password = "testpassword";
     char* key = crypto_generate_key(master_password);
-    LOG_ASSERT(key != NULL, "Failed to generate key");
+    LOG_ASSERT(key != nullptr, "Failed to generate key");
 
     char data[] = "test data";
     size_t data_len = sizeof(data);
@@ -72,12 +77,12 @@ int main() {
     // Encrypt the data
     uint8_t* encrypted_data =
     crypto_encrypt((uint8_t*)data, data_len, &encrypted_len, (unsigned char*)key);
-    LOG_ASSERT(encrypted_data != NULL, "Failed to encrypt data");
+    LOG_ASSERT(encrypted_data != nullptr, "Failed to encrypt data");
 
     // Decrypt the data
     uint8_t* decrypted_data =
     crypto_decrypt(encrypted_data, encrypted_len, &decrypted_len, (unsigned char*)key);
-    LOG_ASSERT(decrypted_data != NULL, "Failed to decrypt data");
+    LOG_ASSERT(decrypted_data != nullptr, "Failed to decrypt data");
 
     // Check if decrypted data matches original data
     LOG_ASSERT(decrypted_len == data_len,
@@ -94,11 +99,13 @@ int main() {
 ```
 
 Compile the example:
+
 ```bash
 gcc -o example example.c `pkg-config --cflags --libs cipherkit`
 ```
 
 Run the example:
+
 ```bash
 ./example
 ```
@@ -106,7 +113,9 @@ Run the example:
 See docs and read the tests for more examples(Nothing beats the tests).
 
 ## Contributing
+
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 ## License
+
 MIT
