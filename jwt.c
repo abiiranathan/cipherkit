@@ -62,7 +62,7 @@ static jwt_error_t jwt_generate(const JWTPayload* payload, const char* secret, c
         return JWT_ERROR_INVALID_INPUT;
     }
 
-    *out_token         = nullptr;
+    *out_token = nullptr;
     jwt_error_t result = JWT_SUCCESS;
     char *payload_str = nullptr, *encoded_header = nullptr, *encoded_payload = nullptr;
     char *message = nullptr, *encoded_signature = nullptr, *jwt_token = nullptr;
@@ -83,7 +83,7 @@ static jwt_error_t jwt_generate(const JWTPayload* payload, const char* secret, c
         goto cleanup;
     }
 
-    encoded_header  = crypto_base64_encode((unsigned char*)JWT_HEADER, strlen(JWT_HEADER));
+    encoded_header = crypto_base64_encode((unsigned char*)JWT_HEADER, strlen(JWT_HEADER));
     encoded_payload = crypto_base64_encode((unsigned char*)payload_str, strlen(payload_str));
 
     if (!encoded_header || !encoded_payload) {
@@ -92,7 +92,7 @@ static jwt_error_t jwt_generate(const JWTPayload* payload, const char* secret, c
     }
 
     size_t message_len = strlen(encoded_header) + strlen(encoded_payload) + 2;
-    message            = (char*)malloc(message_len);
+    message = (char*)malloc(message_len);
     if (!message) {
         result = JWT_ERROR_MEMORY_ALLOCATION;
         goto cleanup;
@@ -100,9 +100,9 @@ static jwt_error_t jwt_generate(const JWTPayload* payload, const char* secret, c
 
     snprintf(message, message_len, "%s.%s", encoded_header, encoded_payload);
 
-    unsigned int hmac_len               = 0;
+    unsigned int hmac_len = 0;
     unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
-    result                              = create_hmac_sha256(secret, message, hmac, &hmac_len);
+    result = create_hmac_sha256(secret, message, hmac, &hmac_len);
     if (result != JWT_SUCCESS) {
         goto cleanup;
     }
@@ -154,8 +154,8 @@ jwt_error_t jwt_parse_payload(const char* payload, JWTPayload* p) {
         return JWT_ERROR_JSON_PARSING;
     }
 
-    cJSON* sub  = cJSON_GetObjectItemCaseSensitive(json, "sub");
-    cJSON* exp  = cJSON_GetObjectItemCaseSensitive(json, "exp");
+    cJSON* sub = cJSON_GetObjectItemCaseSensitive(json, "sub");
+    cJSON* exp = cJSON_GetObjectItemCaseSensitive(json, "exp");
     cJSON* data = cJSON_GetObjectItemCaseSensitive(json, "data");
 
     if (!cJSON_IsString(sub) || !cJSON_IsNumber(exp) || !cJSON_IsString(data)) {
@@ -195,16 +195,16 @@ jwt_error_t jwt_token_verify(const char* token, const char* secret, JWTPayload* 
 
     memset(p, 0, sizeof(JWTPayload));
 
-    const char* first_dot  = strchr(token, '.');
-    const char* second_dot = first_dot ? strchr(first_dot + 1, '.') : NULL;
+    const char* first_dot = strchr(token, '.');
+    const char* second_dot = first_dot ? strchr(first_dot + 1, '.') : nullptr;
     if (!first_dot || !second_dot || strchr(second_dot + 1, '.')) {
         return JWT_ERROR_INVALID_FORMAT;
     }
 
-    size_t header_len    = first_dot - token;
-    size_t payload_len   = second_dot - (first_dot + 1);
+    size_t header_len = first_dot - token;
+    size_t payload_len = second_dot - (first_dot + 1);
     size_t signature_len = strlen(second_dot + 1);
-    size_t message_len   = header_len + payload_len + 1;
+    size_t message_len = header_len + payload_len + 1;
 
     if (message_len > JWT_MAX_LEN) {
         return JWT_ERROR_INVALID_INPUT;

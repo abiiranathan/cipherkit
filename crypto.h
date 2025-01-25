@@ -44,8 +44,7 @@ uint8_t* crypto_base64_decode(const char* data, size_t* out_len);
 #define CHACHA20_KEY_SIZE 32  // 256 bits
 #define CHACHA20_IV_SIZE 12   // 96 bits
 
-/* generates random bytes using ChaCha20.
-* It uses a CHACHA20 cipher to generate random bytes.
+/* Generates cryptographically secure random bytes using ChaCha20 cipher.
 * The key and IV are generated using the RAND_bytes function from OpenSSL.
 * Returns true on success, false on failure.
 * 

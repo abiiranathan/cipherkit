@@ -65,8 +65,8 @@ char* crypto_generate_key(const char* master_password) {
 
     // Encode the salt and derived key
     size_t key_with_salt_len = sizeof(key_with_salt);
-    size_t max_hex_len       = key_with_salt_len * 2 + 1;
-    char* encoded_key        = (char*)malloc(max_hex_len);
+    size_t max_hex_len = key_with_salt_len * 2 + 1;
+    char* encoded_key = (char*)malloc(max_hex_len);
     if (encoded_key == nullptr) {
         LOG_FATAL("Failed to allocate memory for the encoded key");
     }
@@ -78,7 +78,7 @@ char* crypto_generate_key(const char* master_password) {
 bool crypto_verify_key(const char* encoded_key, const char* master_password) {
     // Calculate the length of the binary data
     size_t key_with_salt_len = strlen(encoded_key) / 2;
-    uint8_t* key_with_salt   = (uint8_t*)malloc(key_with_salt_len);
+    uint8_t* key_with_salt = (uint8_t*)malloc(key_with_salt_len);
     if (key_with_salt == nullptr) {
         LOG_ERROR("Failed to allocate memory for the key with salt");
         return false;
@@ -131,7 +131,7 @@ uint8_t* crypto_encrypt(const uint8_t* data, size_t data_len, size_t* out_len,
 
     int len;
     int ciphertext_len = 0;
-    int block_size     = EVP_CIPHER_block_size(EVP_aes_128_ecb());
+    int block_size = EVP_CIPHER_block_size(EVP_aes_128_ecb());
 
     // Allocate buffer for ciphertext
     uint8_t* ciphertext = (uint8_t*)malloc(data_len + block_size);
@@ -190,7 +190,7 @@ uint8_t* crypto_decrypt(const uint8_t* data, size_t data_len, size_t* out_len,
 
     int len;
     int ciphertext_len = 0;
-    int block_size     = EVP_CIPHER_block_size(EVP_aes_128_ecb());
+    int block_size = EVP_CIPHER_block_size(EVP_aes_128_ecb());
 
     // Allocate buffer for plaintext
     uint8_t* cipher_text = (uint8_t*)malloc(data_len + block_size);
@@ -233,7 +233,7 @@ uint8_t* crypto_decrypt(const uint8_t* data, size_t data_len, size_t* out_len,
 char* crypto_base64_encode(uint8_t* data, size_t data_len) {
     BIO* b64 = BIO_new(BIO_f_base64());
     BIO* bio = BIO_new(BIO_s_mem());
-    bio      = BIO_push(b64, bio);
+    bio = BIO_push(b64, bio);
 
     BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);  // Disable newlines
     BIO_write(bio, data, data_len);
@@ -267,10 +267,10 @@ uint8_t* crypto_base64_decode(const char* data, size_t* out_len) {
     BIO *bio_mem, *bio_b64;
     uint8_t* buffer;
     int decode_len = 0;
-    long len       = strlen(data);
+    long data_len = strlen(data);
 
     // Create memory BIO for encoded data
-    bio_mem = BIO_new_mem_buf((void*)data, len);
+    bio_mem = BIO_new_mem_buf((void*)data, data_len);
     if (bio_mem == nullptr) {
         return nullptr;
     }
@@ -289,16 +289,16 @@ uint8_t* crypto_base64_decode(const char* data, size_t* out_len) {
     bio_b64 = BIO_push(bio_b64, bio_mem);
 
     // Allocate buffer for decoded data with a safe estimate
-    buffer = (uint8_t*)malloc(len);
+    buffer = (uint8_t*)malloc(data_len);
     if (buffer == nullptr) {
         BIO_free_all(bio_b64);
         return nullptr;
     }
 
-    memset(buffer, 0, len);
+    memset(buffer, 0, data_len);
 
     // Decode the data
-    decode_len = BIO_read(bio_b64, buffer, len);
+    decode_len = BIO_read(bio_b64, buffer, data_len);
     if (decode_len < 0) {
         free(buffer);
         BIO_free_all(bio_b64);
@@ -314,7 +314,6 @@ uint8_t* crypto_base64_decode(const char* data, size_t* out_len) {
     return buffer;
 }
 
-/* generates random bytes using ChaCha20 */
 bool crypto_random_bytes(uint8_t* out, size_t out_len) {
     // Generate key and IV
     uint8_t key[CHACHA20_KEY_SIZE];
@@ -425,7 +424,7 @@ uint32_t crypto_genRandLong(MTRand* rand) {
             m_seedRand(rand, 4357);
         }
         for (kk = 0; kk < STATE_VECTOR_LENGTH - STATE_VECTOR_M; kk++) {
-            y            = (rand->mt[kk] & UPPER_MASK) | (rand->mt[kk + 1] & LOWER_MASK);
+            y = (rand->mt[kk] & UPPER_MASK) | (rand->mt[kk + 1] & LOWER_MASK);
             rand->mt[kk] = rand->mt[kk + STATE_VECTOR_M] ^ (y >> 1) ^ mag[y & 0x1];
         }
         for (; kk < STATE_VECTOR_LENGTH - 1; kk++) {
@@ -435,7 +434,7 @@ uint32_t crypto_genRandLong(MTRand* rand) {
         }
         y = (rand->mt[STATE_VECTOR_LENGTH - 1] & UPPER_MASK) | (rand->mt[0] & LOWER_MASK);
         rand->mt[STATE_VECTOR_LENGTH - 1] = rand->mt[STATE_VECTOR_M - 1] ^ (y >> 1) ^ mag[y & 0x1];
-        rand->index                       = 0;
+        rand->index = 0;
     }
     y = rand->mt[rand->index++];
     y ^= (y >> 11);

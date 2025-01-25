@@ -1,4 +1,5 @@
 #include "gzip.h"
+#include <__stddef_unreachable.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -7,7 +8,7 @@
 bool gzip_compress_file(FILE* infile, FILE* outfile) {
     z_stream strm;
     strm.zalloc = Z_NULL;
-    strm.zfree  = Z_NULL;
+    strm.zfree = Z_NULL;
     strm.opaque = Z_NULL;
     if (deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) !=
         Z_OK) {
@@ -15,7 +16,7 @@ bool gzip_compress_file(FILE* infile, FILE* outfile) {
         return false;
     }
 
-    uint8_t in[CHUNK_SIZE]  = {0};
+    uint8_t in[CHUNK_SIZE] = {0};
     uint8_t out[CHUNK_SIZE] = {0};
     int ret;
 
@@ -30,7 +31,7 @@ bool gzip_compress_file(FILE* infile, FILE* outfile) {
 
         do {
             strm.avail_out = CHUNK_SIZE;
-            strm.next_out  = out;
+            strm.next_out = out;
 
             // Use Z_FINISH when we're at the end of the input stream
             ret = deflate(&strm, (strm.avail_in == 0) ? Z_FINISH : Z_NO_FLUSH);
@@ -58,19 +59,19 @@ bool gzip_compress_file(FILE* infile, FILE* outfile) {
 
 bool gzip_decompress_file(FILE* infile, FILE* outfile) {
     z_stream strm;
-    strm.zalloc   = Z_NULL;
-    strm.zfree    = Z_NULL;
-    strm.opaque   = Z_NULL;
+    strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    strm.opaque = Z_NULL;
     strm.avail_in = 0;
-    strm.next_in  = Z_NULL;
+    strm.next_in = Z_NULL;
     if (inflateInit2(&strm, 15 + 16) != Z_OK) {
         fprintf(stderr, "Error initializing zlib\n");
         return false;
     }
 
-    uint8_t in[CHUNK_SIZE]  = {0};
+    uint8_t in[CHUNK_SIZE] = {0};
     uint8_t out[CHUNK_SIZE] = {0};
-    int ret                 = -1;
+    int ret = -1;
     do {
         strm.avail_in = fread(in, 1, CHUNK_SIZE, infile);
         if (ferror(infile)) {
@@ -84,8 +85,8 @@ bool gzip_decompress_file(FILE* infile, FILE* outfile) {
 
         do {
             strm.avail_out = CHUNK_SIZE;
-            strm.next_out  = out;
-            ret            = inflate(&strm, Z_NO_FLUSH);
+            strm.next_out = out;
+            ret = inflate(&strm, Z_NO_FLUSH);
             switch (ret) {
                 case Z_NEED_DICT:
                     ret = Z_DATA_ERROR; /* fall through */
@@ -93,6 +94,8 @@ bool gzip_decompress_file(FILE* infile, FILE* outfile) {
                 case Z_MEM_ERROR:
                     (void)inflateEnd(&strm);
                     return false;
+                default:
+                    // continue;
             }
 
             fwrite(out, 1, CHUNK_SIZE - strm.avail_out, outfile);
@@ -117,28 +120,28 @@ bool gzip_compress_bytes(const uint8_t* data, size_t data_len, uint8_t** compres
 
     /* allocate deflate state */
     strm.zalloc = Z_NULL;
-    strm.zfree  = Z_NULL;
+    strm.zfree = Z_NULL;
     strm.opaque = Z_NULL;
     ret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
     if (ret != Z_OK)
         return false;
 
-    *compressed_data     = nullptr;
+    *compressed_data = nullptr;
     *compressed_data_len = 0;
 
     strm.avail_in = data_len;
-    strm.next_in  = (unsigned char*)data;
+    strm.next_in = (unsigned char*)data;
 
     do {
         strm.avail_out = CHUNK_SIZE;
-        strm.next_out  = out;
-        ret            = deflate(&strm, Z_FINISH); /* no bad return value */
+        strm.next_out = out;
+        ret = deflate(&strm, Z_FINISH); /* no bad return value */
         if (ret == Z_STREAM_ERROR) {
             deflateEnd(&strm);
             return false;
         }
 
-        have              = CHUNK_SIZE - strm.avail_out;
+        have = CHUNK_SIZE - strm.avail_out;
         uint8_t* new_data = (uint8_t*)realloc(*compressed_data, *compressed_data_len + have);
         if (new_data == nullptr) {
             deflateEnd(&strm);
@@ -162,27 +165,27 @@ bool gzip_decompress_bytes(const uint8_t* compressed_data, size_t compressed_dat
     unsigned char out[CHUNK_SIZE];
 
     /* allocate inflate state */
-    strm.zalloc   = Z_NULL;
-    strm.zfree    = Z_NULL;
-    strm.opaque   = Z_NULL;
+    strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    strm.opaque = Z_NULL;
     strm.avail_in = 0;
-    strm.next_in  = Z_NULL;
-    ret           = inflateInit2(&strm, 15 + 16);
+    strm.next_in = Z_NULL;
+    ret = inflateInit2(&strm, 15 + 16);
     if (ret != Z_OK) {
         fprintf(stderr, "Failed to initialize inflate: %d\n", ret);
         return false;
     }
 
-    *uncompressed_data     = nullptr;
+    *uncompressed_data = nullptr;
     *uncompressed_data_len = 0;
 
     strm.avail_in = compressed_data_len;
-    strm.next_in  = (unsigned char*)compressed_data;
+    strm.next_in = (unsigned char*)compressed_data;
 
     do {
         strm.avail_out = CHUNK_SIZE;
-        strm.next_out  = out;
-        ret            = inflate(&strm, Z_NO_FLUSH);
+        strm.next_out = out;
+        ret = inflate(&strm, Z_NO_FLUSH);
         if (ret == Z_STREAM_ERROR) {
             inflateEnd(&strm);
             fprintf(stderr, "Failed to uncompress data: %d\n", ret);
@@ -197,9 +200,11 @@ bool gzip_decompress_bytes(const uint8_t* compressed_data, size_t compressed_dat
                 (void)inflateEnd(&strm);
                 return false;
             }
+            default:
+                // continue;
         }
 
-        have              = CHUNK_SIZE - strm.avail_out;
+        have = CHUNK_SIZE - strm.avail_out;
         uint8_t* new_data = (uint8_t*)realloc(*uncompressed_data, *uncompressed_data_len + have);
         if (new_data == nullptr) {
             (void)inflateEnd(&strm);

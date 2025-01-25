@@ -29,7 +29,7 @@ static char* make_tempfile(void) {
 }
 
 static void test_gzip_file_compression_and_decompression(void) {
-    char* filename            = make_tempfile();
+    char* filename = make_tempfile();
     char* compressed_filename = make_tempfile();
 
     LOG_ASSERT(filename, "Failed to create temporary file");
@@ -57,7 +57,7 @@ static void test_gzip_file_compression_and_decompression(void) {
     LOG_ASSERT(file, "Failed to open compressed file for reading");
 
     char* decompressed_filename = make_tempfile();
-    compressed_file             = fopen(decompressed_filename, "wb");
+    compressed_file = fopen(decompressed_filename, "wb");
     LOG_ASSERT(compressed_file, "Failed to open file for writing");
 
     success = gzip_decompress_file(file, compressed_file);
@@ -103,7 +103,7 @@ static void test_gzip_file_compression_and_decompression(void) {
 
 static void test_gzip_bytes_compression_and_decompression(void) {
     const char* data = "Hello, World!";
-    size_t data_len  = strlen(data);
+    size_t data_len = strlen(data);
 
     uint8_t* compressed_data;
     size_t compressed_data_len;
@@ -111,7 +111,7 @@ static void test_gzip_bytes_compression_and_decompression(void) {
         gzip_compress_bytes((const uint8_t*)data, data_len, &compressed_data, &compressed_data_len);
     LOG_ASSERT(success, "Failed to compress data");
 
-    uint8_t* uncompressed_data   = nullptr;
+    uint8_t* uncompressed_data = nullptr;
     size_t uncompressed_data_len = 0;
     success = gzip_decompress_bytes(compressed_data, compressed_data_len, &uncompressed_data,
                                     &uncompressed_data_len);
