@@ -4,9 +4,13 @@
 # Author: Dr. Abiira Nathan <nabiira2by2@gmail.com>
 # Created on: 2024-09-29
 #
-# Install dependencies using:
-# `sudo apt-get install build-essential libssl-dev libsodium-dev libz-dev libcjson-dev`
+# This Makefile is a convenience wrapper around CMake.
+# It delegates all build operations to the CMakeLists.txt file.
 #
+# Install dependencies using:
+# `sudo apt-get install build-essential libssl-dev libsodium-dev libz-dev libcjson-dev cmake`
+#
+# Build the library using `make`
 # Install the library using `sudo make install`
 # Uninstall the library using `sudo make uninstall`
 # Run tests using `make test`
@@ -14,72 +18,73 @@
 # NB: You need to have `valgrind` installed to run memory checks.
 # ===============================================================================
 
-CC = clang
-AR = ar
-CFLAGS = -Wall -Wextra -Werror -pedantic -Wno-format-truncation -std=c23 -O3 -fPIC
-LDFLAGS = -lm -lssl -lcrypto -lsodium -lz -lcjson -lpthread
-NAME = cipherkit
-LIB = lib$(NAME)
-SRC = crypto.c gzip.c jwt.c
-HEADERS = cipherkit.h crypto.h gzip.h jwt.h logging.h
-OBJ_DIR = obj
-OBJ = $(addprefix $(OBJ_DIR)/, $(SRC:.c=.o))
-DEPS = $(OBJ:.o=.d)
+# Build directory for CMake
+BUILD_DIR = build
 
-# Installation paths
-INSTALL_PREFIX = /usr/local
-HEADER_DIR = $(INSTALL_PREFIX)/include/$(NAME)
-LIB_DIR = $(INSTALL_PREFIX)/lib
-PKG_CONFIG_DIR = $(LIB_DIR)/pkgconfig
+# Default target - configure and build
+.PHONY: all
+all: $(BUILD_DIR)
+	@cmake --build $(BUILD_DIR) --parallel
 
-CLEANFILES = $(LIB).a $(LIB).so gzip_test crypto_test jwt_test $(OBJ_DIR)
+# Configure CMake (create build directory and run cmake)
+$(BUILD_DIR):
+	@mkdir -p $(BUILD_DIR)
+	@cd $(BUILD_DIR) && cmake -DCMAKE_BUILD_TYPE=Release ..
 
-# Default target
-all: $(LIB).a $(LIB).so
+# Install the library (requires sudo for system-wide installation)
+.PHONY: install
+install: all
+	@cd $(BUILD_DIR) && sudo cmake --install .
 
-# Static library
-$(LIB).a: $(OBJ)
-	$(AR) rcs $@ $^
-
-# Shared library
-$(LIB).so: $(OBJ)
-	$(CC) -shared -o $@ $^ $(LDFLAGS)
-
-# Ensure object directory exists
-$(OBJ_DIR):
-	mkdir -p $(OBJ_DIR)
-
-# Compile object files with dependency generation
-$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
-
-# Include dependencies if they exist
--include $(DEPS)
-
-install: $(LIB).a $(LIB).so
-	sudo mkdir -p $(LIB_DIR) $(HEADER_DIR) $(PKG_CONFIG_DIR)
-	sudo cp $(LIB).a $(LIB_DIR)
-	sudo cp $(LIB).so $(LIB_DIR)
-	sudo cp $(HEADERS) $(HEADER_DIR)
-	sudo cp $(NAME).pc $(PKG_CONFIG_DIR)
-
+# Uninstall the library
+.PHONY: uninstall
 uninstall:
-	sudo rm -rf $(LIB_DIR)/$(LIB).a $(LIB_DIR)/$(LIB).so $(HEADER_DIR) $(PKG_CONFIG_DIR)/$(NAME).pc
+	@if [ -f $(BUILD_DIR)/install_manifest.txt ]; then \
+		sudo xargs rm -f < $(BUILD_DIR)/install_manifest.txt; \
+		sudo rm -rf /usr/local/include/cipherkit; \
+		sudo rm -f /usr/local/lib/pkgconfig/cipherkit.pc; \
+		echo "Uninstall complete"; \
+	else \
+		echo "Error: install_manifest.txt not found. Run 'make install' first."; \
+	fi
 
-test: $(LIB).a $(LIB).so
-	$(CC) -o gzip_test tests/gzip_test.c $(LIB).a $(LDFLAGS)
-	$(CC) -o crypto_test tests/crypto_test.c $(LIB).a $(LDFLAGS)
-	$(CC) -o jwt_test tests/jwt_test.c $(LIB).a $(LDFLAGS)
-	./gzip_test
-	./crypto_test
-	./jwt_test
+# Run tests using CTest
+.PHONY: test
+test: all
+	@cd $(BUILD_DIR) && ctest --output-on-failure
 
-memcheck: test
-	valgrind --leak-check=full ./gzip_test
-	valgrind --leak-check=full ./crypto_test
-	valgrind --leak-check=full ./jwt_test
-
+# Clean build artifacts
+.PHONY: clean
 clean:
-	rm -rf $(CLEANFILES)
+	@rm -rf $(BUILD_DIR)
+	@echo "Build directory cleaned"
 
-.PHONY: all install uninstall test memcheck clean
+# Reconfigure (clean and rebuild from scratch)
+.PHONY: reconfigure
+reconfigure: clean all
+
+# Debug build configuration
+.PHONY: debug
+debug:
+	@mkdir -p $(BUILD_DIR)
+	@cd $(BUILD_DIR) && cmake -DCMAKE_BUILD_TYPE=Debug ..
+	@cmake --build $(BUILD_DIR) --parallel
+
+# Help target
+.PHONY: help
+help:
+	@echo "CipherKit Makefile - CMake wrapper"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  all          - Build the library (default)"
+	@echo "  install      - Install the library system-wide (requires sudo)"
+	@echo "  uninstall    - Remove installed library files (requires sudo)"
+	@echo "  test         - Run all tests"
+	@echo "  clean        - Remove build directory"
+	@echo "  reconfigure  - Clean and rebuild from scratch"
+	@echo "  debug        - Build with debug symbols"
+	@echo "  help         - Show this help message"
+	@echo ""
+	@echo "Dependencies:"
+	@echo "  sudo apt-get install build-essential libssl-dev libsodium-dev"
+	@echo "  sudo apt-get install libz-dev libcjson-dev cmake valgrind"

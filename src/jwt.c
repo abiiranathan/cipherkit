@@ -1,6 +1,6 @@
-#include "jwt.h"
-#include "crypto.h"
-#include "logging.h"
+#include "../include/jwt.h"
+#include "../include/crypto.h"
+#include "../include/logging.h"
 
 #include <cjson/cJSON.h>
 #include <openssl/err.h>
@@ -98,7 +98,11 @@ static jwt_error_t jwt_generate(const JWTPayload* payload, const char* secret, c
         goto cleanup;
     }
 
-    snprintf(message, message_len, "%s.%s", encoded_header, encoded_payload);
+    int written = snprintf(message, message_len, "%s.%s", encoded_header, encoded_payload);
+    if (written < 0 || (size_t)written >= message_len) {
+        result = JWT_ERROR_INVALID_INPUT;
+        goto cleanup;
+    }
 
     unsigned int hmac_len = 0;
     unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
@@ -113,7 +117,8 @@ static jwt_error_t jwt_generate(const JWTPayload* payload, const char* secret, c
         goto cleanup;
     }
 
-    size_t jwt_token_len = strlen(message) + strlen(encoded_signature) + 2;
+    // Calculate total JWT length: message + '.' + signature + null terminator
+    size_t jwt_token_len = strlen(message) + 1 + strlen(encoded_signature) + 1;
     if (jwt_token_len > JWT_MAX_LEN) {
         result = JWT_ERROR_INVALID_INPUT;
         goto cleanup;
@@ -125,7 +130,12 @@ static jwt_error_t jwt_generate(const JWTPayload* payload, const char* secret, c
         goto cleanup;
     }
 
-    snprintf(jwt_token, jwt_token_len, "%s.%s", message, encoded_signature);
+    written = snprintf(jwt_token, jwt_token_len, "%s.%s", message, encoded_signature);
+    if (written < 0 || (size_t)written >= jwt_token_len) {
+        result = JWT_ERROR_INVALID_INPUT;
+        goto cleanup;
+    }
+
     *out_token = jwt_token;
 
 cleanup:
@@ -201,8 +211,8 @@ jwt_error_t jwt_token_verify(const char* token, const char* secret, JWTPayload* 
         return JWT_ERROR_INVALID_FORMAT;
     }
 
-    size_t header_len = first_dot - token;
-    size_t payload_len = second_dot - (first_dot + 1);
+    size_t header_len = (size_t)(first_dot - token);
+    size_t payload_len = (size_t)(second_dot - (first_dot + 1));
     size_t signature_len = strlen(second_dot + 1);
     size_t message_len = header_len + payload_len + 1;
 

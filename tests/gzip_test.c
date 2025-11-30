@@ -1,8 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
 
 // test gzip file/bytes compression and decompression
-#include "../gzip.h"
-#include "../logging.h"
+#include "../include/gzip.h"
+#include "../include/logging.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,10 +78,10 @@ static void test_gzip_file_compression_and_decompression(void) {
     LOG_ASSERT(file_size == (long)strlen(data),
                "Decompressed file size does not match original file size");
 
-    char* buffer = malloc(file_size + 1);
+    char* buffer = malloc((size_t)(file_size + 1));
     LOG_ASSERT(buffer, "Failed to allocate memory for buffer");
 
-    size_t n = fread(buffer, 1, file_size, file);
+    size_t n = fread(buffer, 1, (size_t)file_size, file);
     LOG_ASSERT(n == (size_t)file_size, "Failed to read decompressed file");
     fclose(file);
     buffer[n] = '\0';

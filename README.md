@@ -70,7 +70,7 @@ int main() {
     LOG_ASSERT(key != nullptr, "Failed to generate key");
 
     char data[] = "test data";
-    size_t data_len = sizeof(data);
+    size_t data_len = sizeof(data)-1;
     size_t encrypted_len;
     size_t decrypted_len;
 

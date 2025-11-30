@@ -1,5 +1,5 @@
-#include "../jwt.h"
-#include "../logging.h"
+#include "../include/jwt.h"
+#include "../include/logging.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -10,11 +10,11 @@
 void test_jwt_token_create() {
     printf("Running test_jwt_token_create...\n");
 
-    JWTPayload payload = {.sub  = "1234567890",
-                          .exp  = (unsigned long)time(nullptr) + 3600,  // 1 hour from now
+    JWTPayload payload = {.sub = "1234567890",
+                          .exp = (unsigned long)time(nullptr) + 3600,  // 1 hour from now
                           .data = "Test data"};
 
-    char* token        = nullptr;
+    char* token = nullptr;
     jwt_error_t result = jwt_token_create(&payload, SECRET, &token);
 
     LOG_ASSERT(result == JWT_SUCCESS, "jwt_token_create failed: %s", jwt_error_string(result));
@@ -29,11 +29,11 @@ void test_jwt_token_create() {
 void test_jwt_token_verify_valid() {
     printf("Running test_jwt_token_verify_valid...\n");
 
-    JWTPayload original_payload = {.sub  = "1234567890",
-                                   .exp  = (unsigned long)time(nullptr) + 3600,  // 1 hour from now
+    JWTPayload original_payload = {.sub = "1234567890",
+                                   .exp = (unsigned long)time(nullptr) + 3600,  // 1 hour from now
                                    .data = "Test data"};
 
-    char* token        = nullptr;
+    char* token = nullptr;
     jwt_error_t result = jwt_token_create(&original_payload, SECRET, &token);
     LOG_ASSERT(result == JWT_SUCCESS, "jwt_token_create failed: %s", jwt_error_string(result));
 
@@ -51,11 +51,11 @@ void test_jwt_token_verify_valid() {
 void test_jwt_token_verify_invalid_signature() {
     printf("Running test_jwt_token_verify_invalid_signature...\n");
 
-    JWTPayload payload = {.sub  = "1234567890",
-                          .exp  = (unsigned long)time(nullptr) + 3600,
+    JWTPayload payload = {.sub = "1234567890",
+                          .exp = (unsigned long)time(nullptr) + 3600,
                           .data = "Test data"};
 
-    char* token        = nullptr;
+    char* token = nullptr;
     jwt_error_t result = jwt_token_create(&payload, SECRET, &token);
     LOG_ASSERT(result == JWT_SUCCESS, "jwt_token_create failed: %s", jwt_error_string(result));
 
@@ -74,11 +74,11 @@ void test_jwt_token_verify_invalid_signature() {
 void test_jwt_token_verify_expired() {
     printf("Running test_jwt_token_verify_expired...\n");
 
-    JWTPayload payload = {.sub  = "1234567890",
-                          .exp  = (unsigned long)time(nullptr) - 3600,  // 1 hour in the past
+    JWTPayload payload = {.sub = "1234567890",
+                          .exp = (unsigned long)time(nullptr) - 3600,  // 1 hour in the past
                           .data = "Test data"};
 
-    char* token        = nullptr;
+    char* token = nullptr;
     jwt_error_t result = jwt_token_create(&payload, SECRET, &token);
     LOG_ASSERT(result == JWT_SUCCESS, "jwt_token_create failed: %s", jwt_error_string(result));
 
@@ -94,11 +94,11 @@ void test_jwt_token_verify_expired() {
 void test_jwt_token_create_invalid_input() {
     printf("Running test_jwt_token_create_invalid_input...\n");
 
-    JWTPayload payload = {.sub  = "",  // Empty subject
-                          .exp  = (unsigned long)time(nullptr) + 3600,
+    JWTPayload payload = {.sub = "",  // Empty subject
+                          .exp = (unsigned long)time(nullptr) + 3600,
                           .data = "Test data"};
 
-    char* token        = nullptr;
+    char* token = nullptr;
     jwt_error_t result = jwt_token_create(&payload, SECRET, &token);
 
     LOG_ASSERT(result == JWT_ERROR_INVALID_INPUT, "Expected JWT_ERROR_INVALID_INPUT, got: %s",

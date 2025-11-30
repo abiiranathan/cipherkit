@@ -1,5 +1,4 @@
-#include "gzip.h"
-#include <__stddef_unreachable.h>
+#include "../include/gzip.h"
 #include <stdlib.h>
 #include <string.h>
 

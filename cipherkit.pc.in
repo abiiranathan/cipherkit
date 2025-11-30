@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: cipherkit
+Description: CipherKit cryptography and compression library
+Version: @PROJECT_VERSION@
+Requires: libssl libcrypto libsodium zlib libcjson
+Libs: -L${libdir} -lcipherkit -lm -lpthread
+Cflags: -I${includedir}/cipherkit

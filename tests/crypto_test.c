@@ -3,12 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../crypto.h"
-#include "../logging.h"
+#include "../include/crypto.h"
+#include "../include/logging.h"
 
 void test_crypto_generate_key(void) {
     const char* master_password = "testpassword";
-    char* key                   = crypto_generate_key(master_password);
+    char* key = crypto_generate_key(master_password);
     LOG_ASSERT(key != nullptr, "Failed to generate key");
     free(key);
     puts("Key generation test passed!");
@@ -16,7 +16,7 @@ void test_crypto_generate_key(void) {
 
 void test_crypto_verify_key(void) {
     const char* master_password = "testpassword";
-    char* key                   = crypto_generate_key(master_password);
+    char* key = crypto_generate_key(master_password);
 
     LOG_ASSERT(key != nullptr, "Failed to generate key");
 
@@ -32,11 +32,11 @@ void test_crypto_verify_key(void) {
 
 void test_crypto_encrypt_decrypt(void) {
     const char* master_password = "testpassword";
-    char* key                   = crypto_generate_key(master_password);
+    char* key = crypto_generate_key(master_password);
 
     LOG_ASSERT(key != nullptr, "Failed to generate key");
 
-    char data[]     = "test data";
+    char data[] = "test data";
     size_t data_len = sizeof(data);
     size_t encrypted_len;
     size_t decrypted_len;
@@ -68,11 +68,11 @@ void test_crypto_encrypt_decrypt(void) {
 // test encryption and decryption of binary data
 void test_crypto_encrypt_decrypt_binary(void) {
     const char* master_password = "strong_password";
-    char* key                   = crypto_generate_key(master_password);
+    char* key = crypto_generate_key(master_password);
 
     LOG_ASSERT(key != nullptr, "Failed to generate key");
 
-    uint8_t data[]  = {0x01, 0x02, 0x03, 0x04, 0x05};
+    uint8_t data[] = {0x01, 0x02, 0x03, 0x04, 0x05};
     size_t data_len = sizeof(data);
     size_t encrypted_len;
 
@@ -101,7 +101,7 @@ void test_crypto_encrypt_decrypt_binary(void) {
 }
 
 void test_base64_encode_decode(void) {
-    uint8_t data[]  = "test data";
+    uint8_t data[] = "test data";
     size_t data_len = sizeof(data);
 
     // Encode the data
@@ -149,7 +149,7 @@ void test_crypto_random_numbers(void) {
 
 void test_mersenne_twister(void) {
     const size_t iterations = 100;
-    MTRand r                = crypto_seedRand(548);
+    MTRand r = crypto_seedRand(548);
 
     // generate a random double between 0 and 1
     for (size_t i = 0; i < iterations; i++) {
