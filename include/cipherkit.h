@@ -8,7 +8,6 @@ extern "C" {
 #include "crypto.h"
 #include "gzip.h"
 #include "jwt.h"
-#include "logging.h"
 
 #ifdef __cplusplus
 }

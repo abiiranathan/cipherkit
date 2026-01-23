@@ -67,7 +67,7 @@ int main() {
     // Generate a cryptographic key from a master password
     const char* master_password = "testpassword";
     char* key = crypto_generate_key(master_password);
-    LOG_ASSERT(key != nullptr, "Failed to generate key");
+    LOG_ASSERT(key != NULL, "Failed to generate key");
 
     char data[] = "test data";
     size_t data_len = sizeof(data)-1;
@@ -77,12 +77,12 @@ int main() {
     // Encrypt the data
     uint8_t* encrypted_data =
     crypto_encrypt((uint8_t*)data, data_len, &encrypted_len, (unsigned char*)key);
-    LOG_ASSERT(encrypted_data != nullptr, "Failed to encrypt data");
+    LOG_ASSERT(encrypted_data != NULL, "Failed to encrypt data");
 
     // Decrypt the data
     uint8_t* decrypted_data =
     crypto_decrypt(encrypted_data, encrypted_len, &decrypted_len, (unsigned char*)key);
-    LOG_ASSERT(decrypted_data != nullptr, "Failed to decrypt data");
+    LOG_ASSERT(decrypted_data != NULL, "Failed to decrypt data");
 
     // Check if decrypted data matches original data
     LOG_ASSERT(decrypted_len == data_len,

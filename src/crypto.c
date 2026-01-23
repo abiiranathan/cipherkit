@@ -1,5 +1,4 @@
 #include "../include/crypto.h"
-#include "../include/logging.h"
 
 #include <string.h>
 #include <sys/cdefs.h>
@@ -8,7 +7,8 @@
 static void crypto_init(void) {
     // Initialize the sodium library
     if (sodium_init() == -1) {
-        LOG_FATAL("Failed to initialize the sodium library");
+        fprintf(stderr, "Failed to initialize the sodium library\n");
+        exit(1);
     }
 
     // Initialize the OpenSSL library
@@ -17,13 +17,15 @@ static void crypto_init(void) {
     // Initialize the crypto library
     int ret = OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
     if (ret != 1) {
-        LOG_FATAL("Failed to initialize the crypto library");
+        fprintf(stderr, "Failed to initialize the crypto library\n");
+        exit(1);
     }
 
     // Initialize the random number generator
     ret = RAND_poll();
     if (ret != 1) {
-        LOG_FATAL("Failed to initialize the random number generator");
+        fprintf(stderr, "Failed to initialize the random number generator\n");
+        exit(1);
     }
 }
 
@@ -49,13 +51,11 @@ __attribute__((destructor(300))) void __cleanup_crypto(void) {
 
 char* crypto_generate_key(const char* master_password) {
     if (master_password == NULL) {
-        LOG_ERROR("Master password cannot be NULL");
         return NULL;
     }
 
     size_t password_len = strlen(master_password);
     if (password_len == 0) {
-        LOG_ERROR("Master password cannot be empty");
         return NULL;
     }
 
@@ -67,7 +67,6 @@ char* crypto_generate_key(const char* master_password) {
     if (crypto_pwhash(derived_key, sizeof(derived_key), master_password, password_len, salt,
                       crypto_pwhash_OPSLIMIT_INTERACTIVE, crypto_pwhash_MEMLIMIT_INTERACTIVE,
                       crypto_pwhash_ALG_DEFAULT) != 0) {
-        LOG_ERROR("Failed to derive the key");
         return NULL;
     }
 
@@ -85,7 +84,6 @@ char* crypto_generate_key(const char* master_password) {
     size_t max_hex_len = key_with_salt_len * 2 + 1;  // 2 hex chars per byte + null terminator
     char* encoded_key = malloc(max_hex_len);
     if (encoded_key == NULL) {
-        LOG_ERROR("Failed to allocate memory for the encoded key");
         return NULL;
     }
 
@@ -100,19 +98,16 @@ char* crypto_generate_key(const char* master_password) {
 
 bool crypto_verify_key(const char* encoded_key, const char* master_password) {
     if (encoded_key == NULL || master_password == NULL) {
-        LOG_ERROR("Encoded key and master password cannot be NULL");
         return false;
     }
 
     size_t encoded_len = strlen(encoded_key);
     if (encoded_len == 0 || encoded_len % 2 != 0) {
-        LOG_ERROR("Invalid encoded key length");
         return false;
     }
 
     size_t password_len = strlen(master_password);
     if (password_len == 0) {
-        LOG_ERROR("Master password cannot be empty");
         return false;
     }
 
@@ -121,21 +116,17 @@ bool crypto_verify_key(const char* encoded_key, const char* master_password) {
     size_t expected_len = crypto_pwhash_SALTBYTES + crypto_secretbox_KEYBYTES;
 
     if (key_with_salt_len != expected_len) {
-        LOG_ERROR("Invalid encoded key length: expected %zu bytes, got %zu bytes", expected_len,
-                  key_with_salt_len);
         return false;
     }
 
     uint8_t* key_with_salt = malloc(key_with_salt_len);
     if (key_with_salt == NULL) {
-        LOG_ERROR("Failed to allocate memory for the key with salt");
         return false;
     }
 
     // Decode the hex string back to binary
     if (sodium_hex2bin(key_with_salt, key_with_salt_len, encoded_key, encoded_len, NULL, NULL,
                        NULL) != 0) {
-        LOG_ERROR("Failed to decode the hex string");
         free(key_with_salt);
         return false;
     }
@@ -149,7 +140,6 @@ bool crypto_verify_key(const char* encoded_key, const char* master_password) {
     if (crypto_pwhash(derived_key, sizeof(derived_key), master_password, password_len, salt,
                       crypto_pwhash_OPSLIMIT_INTERACTIVE, crypto_pwhash_MEMLIMIT_INTERACTIVE,
                       crypto_pwhash_ALG_DEFAULT) != 0) {
-        LOG_ERROR("Failed to derive the key");
         sodium_memzero(key_with_salt, key_with_salt_len);
         free(key_with_salt);
         return false;
@@ -174,23 +164,19 @@ bool crypto_verify_key(const char* encoded_key, const char* master_password) {
 uint8_t* crypto_encrypt(const uint8_t* data, size_t data_len, size_t* out_len,
                         const unsigned char* secret_key) {
     if (data == NULL || out_len == NULL || secret_key == NULL) {
-        LOG_ERROR("Invalid parameters: data, out_len, and secret_key cannot be NULL");
         return NULL;
     }
 
     if (data_len == 0) {
-        LOG_ERROR("Data length cannot be zero");
         return NULL;
     }
 
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
-        LOG_ERROR("Failed to initialize EVP_CIPHER_CTX");
         return NULL;
     }
 
     if (EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, secret_key, NULL) != 1) {
-        LOG_ERROR("Failed to initialize encryption");
         EVP_CIPHER_CTX_free(ctx);
         return NULL;
     }
@@ -200,7 +186,6 @@ uint8_t* crypto_encrypt(const uint8_t* data, size_t data_len, size_t* out_len,
     // Allocate buffer for ciphertext (data + padding)
     uint8_t* ciphertext = malloc(data_len + (size_t)block_size);
     if (ciphertext == NULL) {
-        LOG_ERROR("Failed to allocate memory for ciphertext");
         EVP_CIPHER_CTX_free(ctx);
         return NULL;
     }
@@ -210,7 +195,6 @@ uint8_t* crypto_encrypt(const uint8_t* data, size_t data_len, size_t* out_len,
 
     // Encrypt the data
     if (EVP_EncryptUpdate(ctx, ciphertext, &len, data, (int)data_len) != 1) {
-        LOG_ERROR("Failed to encrypt data");
         free(ciphertext);
         EVP_CIPHER_CTX_free(ctx);
         return NULL;
@@ -219,7 +203,6 @@ uint8_t* crypto_encrypt(const uint8_t* data, size_t data_len, size_t* out_len,
 
     // Finalize encryption (add padding)
     if (EVP_EncryptFinal_ex(ctx, ciphertext + len, &len) != 1) {
-        LOG_ERROR("Failed to finalize encryption");
         free(ciphertext);
         EVP_CIPHER_CTX_free(ctx);
         return NULL;
@@ -232,7 +215,6 @@ uint8_t* crypto_encrypt(const uint8_t* data, size_t data_len, size_t* out_len,
     uint8_t* trimmed_ciphertext = realloc(ciphertext, (size_t)ciphertext_len);
     if (trimmed_ciphertext == NULL) {
         // realloc failed, but original buffer is still valid
-        LOG_ERROR("Failed to reallocate memory for ciphertext");
         free(ciphertext);
         return NULL;
     }
@@ -244,23 +226,19 @@ uint8_t* crypto_encrypt(const uint8_t* data, size_t data_len, size_t* out_len,
 uint8_t* crypto_decrypt(const uint8_t* data, size_t data_len, size_t* out_len,
                         const unsigned char* secret_key) {
     if (data == NULL || out_len == NULL || secret_key == NULL) {
-        LOG_ERROR("Invalid parameters: data, out_len, and secret_key cannot be NULL");
         return NULL;
     }
 
     if (data_len == 0) {
-        LOG_ERROR("Data length cannot be zero");
         return NULL;
     }
 
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
-        LOG_ERROR("Failed to initialize EVP_CIPHER_CTX");
         return NULL;
     }
 
     if (EVP_DecryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, secret_key, NULL) != 1) {
-        LOG_ERROR("Failed to initialize decryption");
         EVP_CIPHER_CTX_free(ctx);
         return NULL;
     }
@@ -270,7 +248,6 @@ uint8_t* crypto_decrypt(const uint8_t* data, size_t data_len, size_t* out_len,
     // Allocate buffer for plaintext
     uint8_t* plaintext = malloc(data_len + (size_t)block_size);
     if (plaintext == NULL) {
-        LOG_ERROR("Failed to allocate memory for plaintext");
         EVP_CIPHER_CTX_free(ctx);
         return NULL;
     }
@@ -280,7 +257,6 @@ uint8_t* crypto_decrypt(const uint8_t* data, size_t data_len, size_t* out_len,
 
     // Decrypt the data
     if (EVP_DecryptUpdate(ctx, plaintext, &len, data, (int)data_len) != 1) {
-        LOG_ERROR("Failed to decrypt data");
         free(plaintext);
         EVP_CIPHER_CTX_free(ctx);
         return NULL;
@@ -289,7 +265,6 @@ uint8_t* crypto_decrypt(const uint8_t* data, size_t data_len, size_t* out_len,
 
     // Finalize decryption (handle padding)
     if (EVP_DecryptFinal_ex(ctx, plaintext + len, &len) != 1) {
-        LOG_ERROR("Failed to finalize decryption (padding error or authentication failure)");
         free(plaintext);
         EVP_CIPHER_CTX_free(ctx);
         return NULL;
@@ -302,7 +277,6 @@ uint8_t* crypto_decrypt(const uint8_t* data, size_t data_len, size_t* out_len,
     uint8_t* trimmed_plaintext = realloc(plaintext, (size_t)plaintext_len);
     if (trimmed_plaintext == NULL) {
         // realloc failed, but original buffer is still valid
-        LOG_ERROR("Failed to reallocate memory for plaintext");
         free(plaintext);
         return NULL;
     }
@@ -315,42 +289,29 @@ uint8_t* crypto_decrypt(const uint8_t* data, size_t data_len, size_t* out_len,
 // Base64 Encoding and Decoding
 // ============================================================================
 
-char* crypto_base64_encode(uint8_t* data, size_t data_len) {
-    if (data == NULL) {
-        LOG_ERROR("Data cannot be NULL");
+char* crypto_base64_encode(const uint8_t* data, size_t data_len) {
+    if (data == NULL || data_len == 0) {
         return NULL;
     }
-
-    if (data_len == 0) {
-        LOG_ERROR("Data length cannot be zero");
-        return NULL;
-    }
-
     BIO* b64 = BIO_new(BIO_f_base64());
     if (b64 == NULL) {
-        LOG_ERROR("Failed to create base64 BIO");
         return NULL;
     }
-
     BIO* bio = BIO_new(BIO_s_mem());
     if (bio == NULL) {
-        LOG_ERROR("Failed to create memory BIO");
         BIO_free(b64);
         return NULL;
     }
-
     bio = BIO_push(b64, bio);
     BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);  // Disable newlines
 
     int write_ret = BIO_write(bio, data, (int)data_len);
     if (write_ret <= 0) {
-        LOG_ERROR("Failed to write data to BIO");
         BIO_free_all(bio);
         return NULL;
     }
 
     if (BIO_flush(bio) != 1) {
-        LOG_ERROR("Failed to flush BIO");
         BIO_free_all(bio);
         return NULL;
     }
@@ -358,14 +319,12 @@ char* crypto_base64_encode(uint8_t* data, size_t data_len) {
     BUF_MEM* bufferPtr = NULL;
     BIO_get_mem_ptr(bio, &bufferPtr);
     if (bufferPtr == NULL || bufferPtr->data == NULL) {
-        LOG_ERROR("Failed to get BIO memory pointer");
         BIO_free_all(bio);
         return NULL;
     }
 
     char* b64text = malloc(bufferPtr->length + 1);  // +1 for null terminator
     if (b64text == NULL) {
-        LOG_ERROR("Failed to allocate memory for base64 string");
         BIO_free_all(bio);
         return NULL;
     }
@@ -379,27 +338,23 @@ char* crypto_base64_encode(uint8_t* data, size_t data_len) {
 
 uint8_t* crypto_base64_decode(const char* data, size_t* out_len) {
     if (data == NULL || out_len == NULL) {
-        LOG_ERROR("Data and out_len cannot be NULL");
         return NULL;
     }
 
     size_t data_len = strlen(data);
     if (data_len == 0) {
-        LOG_ERROR("Data length cannot be zero");
         return NULL;
     }
 
     // Create memory BIO for encoded data
     BIO* bio_mem = BIO_new_mem_buf((void*)data, (int)data_len);
     if (bio_mem == NULL) {
-        LOG_ERROR("Failed to create memory BIO");
         return NULL;
     }
 
     // Create Base64 filter BIO
     BIO* bio_b64 = BIO_new(BIO_f_base64());
     if (bio_b64 == NULL) {
-        LOG_ERROR("Failed to create base64 BIO");
         BIO_free(bio_mem);
         return NULL;
     }
@@ -414,7 +369,6 @@ uint8_t* crypto_base64_decode(const char* data, size_t* out_len) {
     size_t estimated_size = (data_len * 3) / 4 + 1;
     uint8_t* buffer = malloc(estimated_size);
     if (buffer == NULL) {
-        LOG_ERROR("Failed to allocate memory for decoded data");
         BIO_free_all(bio_b64);
         return NULL;
     }
@@ -424,7 +378,6 @@ uint8_t* crypto_base64_decode(const char* data, size_t* out_len) {
     // Decode the data
     int decode_len = BIO_read(bio_b64, buffer, (int)estimated_size);
     if (decode_len < 0) {
-        LOG_ERROR("Failed to decode base64 data");
         free(buffer);
         BIO_free_all(bio_b64);
         return NULL;
@@ -441,19 +394,12 @@ uint8_t* crypto_base64_decode(const char* data, size_t* out_len) {
 // ============================================================================
 
 bool crypto_random_bytes(uint8_t* out, size_t out_len) {
-    if (out == NULL) {
-        LOG_ERROR("Output buffer cannot be NULL");
-        return false;
-    }
-
-    if (out_len == 0) {
-        LOG_ERROR("Output length cannot be zero");
+    if (out == NULL || out_len == 0) {
         return false;
     }
 
     // Use OpenSSL's RAND_bytes for cryptographically secure random bytes
     if (RAND_bytes(out, (int)out_len) != 1) {
-        LOG_ERROR("Failed to generate random bytes");
         return false;
     }
 
@@ -463,7 +409,6 @@ bool crypto_random_bytes(uint8_t* out, size_t out_len) {
 uint64_t crypto_random_uint64(void) {
     uint64_t random_value = 0;
     if (!crypto_random_bytes((uint8_t*)&random_value, sizeof(random_value))) {
-        LOG_ERROR("Failed to generate random uint64");
         return 0;
     }
     return random_value;
@@ -472,7 +417,6 @@ uint64_t crypto_random_uint64(void) {
 uint32_t crypto_random_uint32(void) {
     uint32_t random_value = 0;
     if (!crypto_random_bytes((uint8_t*)&random_value, sizeof(random_value))) {
-        LOG_ERROR("Failed to generate random uint32");
         return 0;
     }
     return random_value;
@@ -481,7 +425,6 @@ uint32_t crypto_random_uint32(void) {
 uint16_t crypto_random_uint16(void) {
     uint16_t random_value = 0;
     if (!crypto_random_bytes((uint8_t*)&random_value, sizeof(random_value))) {
-        LOG_ERROR("Failed to generate random uint16");
         return 0;
     }
     return random_value;
@@ -490,7 +433,6 @@ uint16_t crypto_random_uint16(void) {
 uint8_t crypto_random_uint8(void) {
     uint8_t random_value = 0;
     if (!crypto_random_bytes((uint8_t*)&random_value, sizeof(random_value))) {
-        LOG_ERROR("Failed to generate random uint8");
         return 0;
     }
     return random_value;
@@ -539,7 +481,6 @@ MTRand crypto_seedRand(uint32_t seed) {
 
 uint32_t crypto_genRandLong(MTRand* rand) {
     if (rand == NULL) {
-        LOG_ERROR("MTRand pointer cannot be NULL");
         return 0;
     }
 
@@ -583,16 +524,13 @@ uint32_t crypto_genRandLong(MTRand* rand) {
 
 double crypto_genRand(MTRand* rand) {
     if (rand == NULL) {
-        LOG_ERROR("MTRand pointer cannot be NULL");
         return 0.0;
     }
-
     return ((double)crypto_genRandLong(rand) / (double)0xffffffff);
 }
 
 uint32_t crypto_randRange(uint32_t min, uint32_t max) {
     if (min > max) {
-        LOG_ERROR("Invalid range: min (%u) > max (%u)", min, max);
         return min;
     }
 
@@ -603,7 +541,6 @@ uint32_t crypto_randRange(uint32_t min, uint32_t max) {
     uint32_t seed = crypto_random_uint32();
     MTRand rand = crypto_seedRand(seed);
     uint32_t range = max - min + 1;
-
     return (crypto_genRandLong(&rand) % range) + min;
 }
 
@@ -613,20 +550,17 @@ uint32_t crypto_randRange(uint32_t min, uint32_t max) {
 
 bool crypto_password_hash(const char* password, char hash[CRYPTO_HASH_LENGTH]) {
     if (password == NULL || hash == NULL) {
-        LOG_ERROR("Password and hash buffer cannot be NULL");
         return false;
     }
 
     size_t password_len = strlen(password);
     if (password_len == 0) {
-        LOG_ERROR("Password cannot be empty");
         return false;
     }
 
     // Hash the password using libsodium's password hashing (includes salt generation)
     if (crypto_pwhash_str(hash, password, password_len, crypto_pwhash_OPSLIMIT_INTERACTIVE,
                           crypto_pwhash_MEMLIMIT_INTERACTIVE) != 0) {
-        LOG_ERROR("Failed to hash password (out of memory)");
         return false;
     }
 
@@ -635,13 +569,11 @@ bool crypto_password_hash(const char* password, char hash[CRYPTO_HASH_LENGTH]) {
 
 bool crypto_password_verify(const char* password, const char* hash) {
     if (password == NULL || hash == NULL) {
-        LOG_ERROR("Password and hash cannot be NULL");
         return false;
     }
 
     size_t password_len = strlen(password);
     if (password_len == 0) {
-        LOG_ERROR("Password cannot be empty");
         return false;
     }
 
@@ -649,6 +581,5 @@ bool crypto_password_verify(const char* password, const char* hash) {
     if (crypto_pwhash_str_verify(hash, password, password_len) != 0) {
         return false;
     }
-
     return true;
 }

@@ -1,288 +1,454 @@
+// For strdup
+#define _POSIX_C_SOURCE 200809L
+
 #include "../include/jwt.h"
 #include "../include/crypto.h"
-#include "../include/logging.h"
 
-#include <cjson/cJSON.h>
+#include <openssl/crypto.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <yyjson.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#define JWT_HEADER "{\"alg\":\"HS256\",\"typ\":\"JWT\"}"
-#define JWT_MAX_LEN 8192
+/* Configuration */
+#define JWT_ALG "HS256"
+#define JWT_TYP "JWT"
+#define CLOCK_SKEW_SEC 60
+#define MIN_SECRET_LEN 32
+#define JWT_MAX_TOKEN_LEN 4096
+#define JWT_PAYLOAD_BUFFER_SIZE 2048
+
+static const char JWT_HEADER_JSON[] = "{\"alg\":\"" JWT_ALG "\",\"typ\":\"" JWT_TYP "\"}";
 
 const char* jwt_error_string(jwt_error_t error) {
     switch (error) {
         case JWT_SUCCESS:
             return "Success";
         case JWT_ERROR_INVALID_INPUT:
-            return "Invalid input";
+            return "Invalid input parameter";
         case JWT_ERROR_MEMORY_ALLOCATION:
             return "Memory allocation failed";
         case JWT_ERROR_HMAC_CREATION:
-            return "HMAC creation failed";
+            return "HMAC generation failed";
         case JWT_ERROR_BASE64_ENCODING:
             return "Base64 encoding failed";
         case JWT_ERROR_BASE64_DECODING:
             return "Base64 decoding failed";
+        case JWT_ERROR_JSON_GENERATION:
+            return "JSON generation failed";
         case JWT_ERROR_JSON_PARSING:
             return "JSON parsing failed";
         case JWT_ERROR_INVALID_FORMAT:
-            return "Invalid JWT format";
+            return "Invalid token format";
+        case JWT_ERROR_INVALID_ALGORITHM:
+            return "Unsupported algorithm";
+        case JWT_ERROR_WEAK_SECRET:
+            return "Secret is too weak";
         case JWT_ERROR_SIGNATURE_MISMATCH:
-            return "Signature mismatch";
+            return "Signature verification failed";
         case JWT_ERROR_TOKEN_EXPIRED:
-            return "Token expired";
+            return "Token has expired";
         default:
             return "Unknown error";
     }
 }
 
-static jwt_error_t create_hmac_sha256(const char* key, const char* data,
-                                      unsigned char hmac_buf[EVP_MAX_MD_SIZE], unsigned int* len) {
-    if (!key || !data || !hmac_buf || !len) {
-        return JWT_ERROR_INVALID_INPUT;
+/**
+ * @brief Converts standard Base64 string to Base64URL in-place.
+ * Replaces '+' with '-', '/' with '_', and strips trailing '='.
+ */
+static void base64_to_base64url(char* str) {
+    if (!str)
+        return;
+
+    char* p = str;
+    while (*p) {
+        if (*p == '+')
+            *p = '-';
+        else if (*p == '/')
+            *p = '_';
+        p++;
     }
 
-    ERR_clear_error();
-    HMAC(EVP_sha256(), key, strlen(key), (unsigned char*)data, strlen(data), hmac_buf, len);
+    // Strip padding
+    while (p > str && *(p - 1) == '=') {
+        *(--p) = '\0';
+    }
+}
 
-    if (ERR_get_error()) {
-        LOG_ERROR("Failed to create HMAC SHA-256 signature.");
-        return JWT_ERROR_HMAC_CREATION;
+/**
+ * @brief Converts Base64URL to standard Base64.
+ * Allocates new buffer that must be freed.
+ */
+static char* base64url_to_base64(const char* src, size_t src_len) {
+    if (!src)
+        return NULL;
+
+    size_t padding = (4 - (src_len % 4)) % 4;
+    size_t new_len = src_len + padding;
+
+    char* dst = (char*)malloc(new_len + 1);
+    if (!dst)
+        return NULL;
+
+    memcpy(dst, src, src_len);
+
+    for (size_t i = 0; i < src_len; i++) {
+        if (dst[i] == '-')
+            dst[i] = '+';
+        else if (dst[i] == '_')
+            dst[i] = '/';
     }
 
+    for (size_t i = 0; i < padding; i++) {
+        dst[src_len + i] = '=';
+    }
+    dst[new_len] = '\0';
+
+    return dst;
+}
+
+static jwt_error_t validate_secret(const char* secret) {
+    if (!secret || strlen(secret) < MIN_SECRET_LEN) {
+        return JWT_ERROR_WEAK_SECRET;
+    }
     return JWT_SUCCESS;
 }
 
-static jwt_error_t jwt_generate(const JWTPayload* payload, const char* secret, char** out_token) {
-    if (!payload || !secret || !out_token) {
+static jwt_error_t hmac_sha256(const char* key, const char* data, unsigned char* out_md,
+                               unsigned int* out_len) {
+    if (!key || !data || !out_md || !out_len)
         return JWT_ERROR_INVALID_INPUT;
+
+    if (!HMAC(EVP_sha256(), key, strlen(key), (const unsigned char*)data, strlen(data), out_md,
+              out_len)) {
+        return JWT_ERROR_HMAC_CREATION;
+    }
+    return JWT_SUCCESS;
+}
+
+jwt_error_t jwt_parse_payload_json(const char* raw_payload, jwt_payload_t* out_payload) {
+    if (!raw_payload || !out_payload)
+        return JWT_ERROR_INVALID_INPUT;
+
+    yyjson_doc* doc = yyjson_read(raw_payload, strlen(raw_payload), 0);
+    if (!doc)
+        return JWT_ERROR_JSON_PARSING;
+
+    yyjson_val* root = yyjson_doc_get_root(doc);
+    if (!yyjson_is_obj(root)) {
+        yyjson_doc_free(doc);
+        return JWT_ERROR_JSON_PARSING;
     }
 
-    *out_token = nullptr;
     jwt_error_t result = JWT_SUCCESS;
-    char *payload_str = nullptr, *encoded_header = nullptr, *encoded_payload = nullptr;
-    char *message = nullptr, *encoded_signature = nullptr, *jwt_token = nullptr;
 
-    cJSON* json = cJSON_CreateObject();
-    if (!json) {
-        result = JWT_ERROR_MEMORY_ALLOCATION;
+    // Extract "sub"
+    yyjson_val* sub = yyjson_obj_get(root, "sub");
+    if (yyjson_is_str(sub)) {
+        const char* sub_str = yyjson_get_str(sub);
+        strncpy(out_payload->sub, sub_str, sizeof(out_payload->sub) - 1);
+        out_payload->sub[sizeof(out_payload->sub) - 1] = '\0';
+    } else {
+        result = JWT_ERROR_JSON_PARSING;
         goto cleanup;
     }
 
-    cJSON_AddStringToObject(json, "sub", payload->sub);
-    cJSON_AddNumberToObject(json, "exp", payload->exp);
-    cJSON_AddStringToObject(json, "data", payload->data);
-
-    payload_str = cJSON_PrintUnformatted(json);
-    if (!payload_str) {
-        result = JWT_ERROR_MEMORY_ALLOCATION;
+    // Extract "exp"
+    yyjson_val* exp = yyjson_obj_get(root, "exp");
+    if (yyjson_is_num(exp)) {
+        out_payload->exp = (int64_t)yyjson_get_num(exp);
+    } else {
+        result = JWT_ERROR_JSON_PARSING;
         goto cleanup;
     }
 
-    encoded_header = crypto_base64_encode((unsigned char*)JWT_HEADER, strlen(JWT_HEADER));
-    encoded_payload = crypto_base64_encode((unsigned char*)payload_str, strlen(payload_str));
-
-    if (!encoded_header || !encoded_payload) {
-        result = JWT_ERROR_BASE64_ENCODING;
+    // Extract "data"
+    yyjson_val* data = yyjson_obj_get(root, "data");
+    if (yyjson_is_str(data)) {
+        const char* data_str = yyjson_get_str(data);
+        strncpy(out_payload->data, data_str, sizeof(out_payload->data) - 1);
+        out_payload->data[sizeof(out_payload->data) - 1] = '\0';
+    } else {
+        result = JWT_ERROR_JSON_PARSING;
         goto cleanup;
     }
-
-    size_t message_len = strlen(encoded_header) + strlen(encoded_payload) + 2;
-    message = (char*)malloc(message_len);
-    if (!message) {
-        result = JWT_ERROR_MEMORY_ALLOCATION;
-        goto cleanup;
-    }
-
-    int written = snprintf(message, message_len, "%s.%s", encoded_header, encoded_payload);
-    if (written < 0 || (size_t)written >= message_len) {
-        result = JWT_ERROR_INVALID_INPUT;
-        goto cleanup;
-    }
-
-    unsigned int hmac_len = 0;
-    unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
-    result = create_hmac_sha256(secret, message, hmac, &hmac_len);
-    if (result != JWT_SUCCESS) {
-        goto cleanup;
-    }
-
-    encoded_signature = crypto_base64_encode(hmac, hmac_len);
-    if (!encoded_signature) {
-        result = JWT_ERROR_BASE64_ENCODING;
-        goto cleanup;
-    }
-
-    // Calculate total JWT length: message + '.' + signature + null terminator
-    size_t jwt_token_len = strlen(message) + 1 + strlen(encoded_signature) + 1;
-    if (jwt_token_len > JWT_MAX_LEN) {
-        result = JWT_ERROR_INVALID_INPUT;
-        goto cleanup;
-    }
-
-    jwt_token = (char*)malloc(jwt_token_len);
-    if (!jwt_token) {
-        result = JWT_ERROR_MEMORY_ALLOCATION;
-        goto cleanup;
-    }
-
-    written = snprintf(jwt_token, jwt_token_len, "%s.%s", message, encoded_signature);
-    if (written < 0 || (size_t)written >= jwt_token_len) {
-        result = JWT_ERROR_INVALID_INPUT;
-        goto cleanup;
-    }
-
-    *out_token = jwt_token;
 
 cleanup:
-    cJSON_Delete(json);
-    free(payload_str);
-    free(encoded_header);
-    free(encoded_payload);
-    free(message);
-    free(encoded_signature);
-
-    if (result != JWT_SUCCESS && jwt_token) {
-        free(jwt_token);
-        *out_token = nullptr;
-    }
-
+    yyjson_doc_free(doc);
     return result;
 }
 
-jwt_error_t jwt_parse_payload(const char* payload, JWTPayload* p) {
-    if (!payload || !p) {
+jwt_error_t jwt_token_create(const jwt_payload_t* payload, const char* secret, char** out_token) {
+    if (!payload || !secret || !out_token)
         return JWT_ERROR_INVALID_INPUT;
-    }
-
-    cJSON* json = cJSON_Parse(payload);
-    if (!json) {
-        return JWT_ERROR_JSON_PARSING;
-    }
-
-    cJSON* sub = cJSON_GetObjectItemCaseSensitive(json, "sub");
-    cJSON* exp = cJSON_GetObjectItemCaseSensitive(json, "exp");
-    cJSON* data = cJSON_GetObjectItemCaseSensitive(json, "data");
-
-    if (!cJSON_IsString(sub) || !cJSON_IsNumber(exp) || !cJSON_IsString(data)) {
-        cJSON_Delete(json);
-        return JWT_ERROR_JSON_PARSING;
-    }
-
-    strncpy(p->sub, sub->valuestring, sizeof(p->sub) - 1);
-    p->sub[sizeof(p->sub) - 1] = '\0';
-
-    p->exp = (unsigned long)cJSON_GetNumberValue(exp);
-
-    strncpy(p->data, data->valuestring, sizeof(p->data) - 1);
-    p->data[sizeof(p->data) - 1] = '\0';
-
-    cJSON_Delete(json);
-    return JWT_SUCCESS;
-}
-
-jwt_error_t jwt_token_create(const JWTPayload* payload, const char* secret, char** out_token) {
-    if (!payload || !secret || !out_token) {
-        LOG_ERROR("Invalid input for jwt_token_create");
-        return JWT_ERROR_INVALID_INPUT;
-    }
 
     if (strlen(payload->sub) == 0 || strlen(payload->data) == 0) {
         return JWT_ERROR_INVALID_INPUT;
     }
 
-    return jwt_generate(payload, secret, out_token);
+    jwt_error_t err = validate_secret(secret);
+    if (err != JWT_SUCCESS)
+        return err;
+
+    *out_token = NULL;
+    char* b64_header = NULL;
+    char* b64_payload = NULL;
+    char* b64_sig = NULL;
+    char* signing_input = NULL;
+
+    // Stack-allocated buffer for JSON payload
+    char payload_buffer[JWT_PAYLOAD_BUFFER_SIZE];
+
+    err = JWT_ERROR_UNKNOWN;
+
+    // Encode Header
+    static const size_t json_header_len = sizeof(JWT_HEADER_JSON) - 1;
+    b64_header = crypto_base64_encode((const unsigned char*)JWT_HEADER_JSON, json_header_len);
+    if (!b64_header) {
+        err = JWT_ERROR_BASE64_ENCODING;
+        goto cleanup;
+    }
+
+    base64_to_base64url(b64_header);
+
+    // Generate Payload JSON using yyjson with mutable doc
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
+    if (!doc) {
+        err = JWT_ERROR_MEMORY_ALLOCATION;
+        goto cleanup;
+    }
+
+    yyjson_mut_val* root = yyjson_mut_obj(doc);
+    yyjson_mut_doc_set_root(doc, root);
+
+    yyjson_mut_obj_add_str(doc, root, "sub", payload->sub);
+    yyjson_mut_obj_add_int(doc, root, "exp", payload->exp);
+    yyjson_mut_obj_add_int(doc, root, "iat", (int64_t)time(NULL));
+    yyjson_mut_obj_add_str(doc, root, "data", payload->data);
+
+    // Write JSON to buffer
+    size_t json_len;
+    char* json_str = yyjson_mut_write_opts(doc, YYJSON_WRITE_NOFLAG, NULL, &json_len, NULL);
+
+    if (!json_str || json_len >= JWT_PAYLOAD_BUFFER_SIZE) {
+        yyjson_mut_doc_free(doc);
+        if (json_str)
+            free(json_str);
+        err = JWT_ERROR_JSON_GENERATION;
+        goto cleanup;
+    }
+
+    memcpy(payload_buffer, json_str, json_len);
+    payload_buffer[json_len] = '\0';
+
+    free(json_str);
+    yyjson_mut_doc_free(doc);
+
+    // Encode Payload
+    b64_payload = crypto_base64_encode((const uint8_t*)payload_buffer, json_len);
+    if (!b64_payload) {
+        err = JWT_ERROR_BASE64_ENCODING;
+        goto cleanup;
+    }
+    base64_to_base64url(b64_payload);
+
+    // Construct Signing Input (header.payload)
+    size_t input_len = strlen(b64_header) + 1 + strlen(b64_payload) + 1;
+    signing_input = (char*)malloc(input_len);
+    if (!signing_input) {
+        err = JWT_ERROR_MEMORY_ALLOCATION;
+        goto cleanup;
+    }
+    snprintf(signing_input, input_len, "%s.%s", b64_header, b64_payload);
+
+    // Calculate HMAC
+    unsigned char hmac[EVP_MAX_MD_SIZE];
+    unsigned int hmac_len = 0;
+    err = hmac_sha256(secret, signing_input, hmac, &hmac_len);
+    if (err != JWT_SUCCESS)
+        goto cleanup;
+
+    // Encode Signature
+    b64_sig = crypto_base64_encode(hmac, hmac_len);
+    if (!b64_sig) {
+        err = JWT_ERROR_BASE64_ENCODING;
+        goto cleanup;
+    }
+    base64_to_base64url(b64_sig);
+
+    // Assemble Final Token
+    size_t token_len = strlen(signing_input) + 1 + strlen(b64_sig) + 1;
+    if (token_len > JWT_MAX_TOKEN_LEN) {
+        err = JWT_ERROR_INVALID_INPUT;
+        goto cleanup;
+    }
+
+    *out_token = (char*)malloc(token_len);
+    if (!*out_token) {
+        err = JWT_ERROR_MEMORY_ALLOCATION;
+        goto cleanup;
+    }
+
+    snprintf(*out_token, token_len, "%s.%s", signing_input, b64_sig);
+    err = JWT_SUCCESS;
+
+cleanup:
+    free(b64_header);
+    free(b64_payload);
+    free(b64_sig);
+    free(signing_input);
+
+    return err;
 }
 
-jwt_error_t jwt_token_verify(const char* token, const char* secret, JWTPayload* p) {
-    if (!token || !secret || !p) {
+jwt_error_t jwt_token_verify(const char* token, const char* secret, jwt_payload_t* out_payload) {
+    if (!token || !secret || !out_payload)
         return JWT_ERROR_INVALID_INPUT;
-    }
 
-    memset(p, 0, sizeof(JWTPayload));
+    jwt_error_t err = validate_secret(secret);
+    if (err != JWT_SUCCESS)
+        return err;
 
-    const char* first_dot = strchr(token, '.');
-    const char* second_dot = first_dot ? strchr(first_dot + 1, '.') : nullptr;
-    if (!first_dot || !second_dot || strchr(second_dot + 1, '.')) {
-        return JWT_ERROR_INVALID_FORMAT;
-    }
-
-    size_t header_len = (size_t)(first_dot - token);
-    size_t payload_len = (size_t)(second_dot - (first_dot + 1));
-    size_t signature_len = strlen(second_dot + 1);
-    size_t message_len = header_len + payload_len + 1;
-
-    if (message_len > JWT_MAX_LEN) {
+    if (strlen(token) > JWT_MAX_TOKEN_LEN)
         return JWT_ERROR_INVALID_INPUT;
-    }
 
-    char* message = (char*)malloc(message_len + 1);
-    if (!message) {
+    char* header_b64 = NULL;
+    char* payload_b64 = NULL;
+    char* signature_b64 = NULL;
+    char* decoded_header = NULL;
+    unsigned char* decoded_payload = NULL;
+    char* calc_sig_b64 = NULL;
+    char* signing_input = NULL;
+
+    // We make a copy of the token to split it safely
+    char* token_copy = strdup(token);
+    if (!token_copy)
         return JWT_ERROR_MEMORY_ALLOCATION;
+
+    // Split Token
+    char* part1 = strtok(token_copy, ".");
+    char* part2 = strtok(NULL, ".");
+    char* part3 = strtok(NULL, ".");
+
+    if (!part1 || !part2 || !part3 || strtok(NULL, ".")) {
+        err = JWT_ERROR_INVALID_FORMAT;
+        goto cleanup;
     }
 
-    memcpy(message, token, header_len);
-    message[header_len] = '.';
-    memcpy(message + header_len + 1, first_dot + 1, payload_len);
-    message[message_len] = '\0';
+    header_b64 = part1;
+    payload_b64 = part2;
+    signature_b64 = part3;
+
+    // Verify Header
+    char* std_header_b64 = base64url_to_base64(header_b64, strlen(header_b64));
+    if (!std_header_b64) {
+        err = JWT_ERROR_MEMORY_ALLOCATION;
+        goto cleanup;
+    }
+
+    size_t dec_len = 0;
+    decoded_header = (char*)crypto_base64_decode(std_header_b64, &dec_len);
+    free(std_header_b64);
+
+    if (!decoded_header) {
+        err = JWT_ERROR_BASE64_DECODING;
+        goto cleanup;
+    }
+
+    yyjson_doc* header_doc = yyjson_read(decoded_header, dec_len, 0);
+    if (!header_doc) {
+        err = JWT_ERROR_JSON_PARSING;
+        goto cleanup;
+    }
+
+    yyjson_val* header_root = yyjson_doc_get_root(header_doc);
+    yyjson_val* alg = yyjson_obj_get(header_root, "alg");
+
+    if (!yyjson_is_str(alg) || strcmp(yyjson_get_str(alg), JWT_ALG) != 0) {
+        yyjson_doc_free(header_doc);
+        err = JWT_ERROR_INVALID_ALGORITHM;
+        goto cleanup;
+    }
+
+    yyjson_doc_free(header_doc);
+
+    // Verify Signature
+    // Reconstruct "header.payload" from the original parts
+    size_t sig_input_len = strlen(header_b64) + 1 + strlen(payload_b64) + 1;
+    signing_input = (char*)malloc(sig_input_len);
+    if (!signing_input) {
+        err = JWT_ERROR_MEMORY_ALLOCATION;
+        goto cleanup;
+    }
+    snprintf(signing_input, sig_input_len, "%s.%s", header_b64, payload_b64);
 
     unsigned char hmac[EVP_MAX_MD_SIZE];
-    unsigned int hmac_len;
-    jwt_error_t result = create_hmac_sha256(secret, message, hmac, &hmac_len);
-    if (result != JWT_SUCCESS) {
-        free(message);
-        return result;
+    unsigned int hmac_len = 0;
+    err = hmac_sha256(secret, signing_input, hmac, &hmac_len);
+    if (err != JWT_SUCCESS)
+        goto cleanup;
+
+    char* temp_sig = crypto_base64_encode(hmac, hmac_len);
+    if (!temp_sig) {
+        err = JWT_ERROR_BASE64_ENCODING;
+        goto cleanup;
     }
 
-    char* encoded_signature = crypto_base64_encode(hmac, hmac_len);
-    if (!encoded_signature) {
-        free(message);
-        return JWT_ERROR_BASE64_ENCODING;
+    calc_sig_b64 = strdup(temp_sig);
+    free(temp_sig);
+
+    if (!calc_sig_b64) {
+        err = JWT_ERROR_MEMORY_ALLOCATION;
+        goto cleanup;
+    }
+    base64_to_base64url(calc_sig_b64);
+
+    // Constant time comparison
+    if (CRYPTO_memcmp(calc_sig_b64, signature_b64, strlen(signature_b64)) != 0) {
+        err = JWT_ERROR_SIGNATURE_MISMATCH;
+        goto cleanup;
     }
 
-    bool signatures_match = (strlen(encoded_signature) == signature_len) &&
-                            (memcmp(encoded_signature, second_dot + 1, signature_len) == 0);
-
-    free(encoded_signature);
-    if (!signatures_match) {
-        free(message);
-        return JWT_ERROR_SIGNATURE_MISMATCH;
+    // Decode and Parse Payload
+    char* std_payload_b64 = base64url_to_base64(payload_b64, strlen(payload_b64));
+    if (!std_payload_b64) {
+        err = JWT_ERROR_MEMORY_ALLOCATION;
+        goto cleanup;
     }
 
-    // the payload is from first_dot + 1 to second_dot
-    char* valid_token = (char*)malloc(payload_len + 1);
-    if (!valid_token) {
-        free(message);
-        return JWT_ERROR_MEMORY_ALLOCATION;
-    }
+    decoded_payload = crypto_base64_decode(std_payload_b64, &dec_len);
+    free(std_payload_b64);
 
-    memcpy(valid_token, first_dot + 1, payload_len);
-    valid_token[payload_len] = '\0';
-
-    size_t decoded_payload_len;
-    unsigned char* decoded_payload = crypto_base64_decode(valid_token, &decoded_payload_len);
     if (!decoded_payload) {
-        free(message);
-        free(valid_token);
-        return JWT_ERROR_BASE64_DECODING;
+        err = JWT_ERROR_BASE64_DECODING;
+        goto cleanup;
     }
 
-    result = jwt_parse_payload((char*)decoded_payload, p);
+    err = jwt_parse_payload_json((char*)decoded_payload, out_payload);
+    if (err != JWT_SUCCESS)
+        goto cleanup;
+
+    // Check Expiration
+    int64_t now = (int64_t)time(NULL);
+    if (out_payload->exp < (now - CLOCK_SKEW_SEC)) {
+        err = JWT_ERROR_TOKEN_EXPIRED;
+        goto cleanup;
+    }
+
+    err = JWT_SUCCESS;
+
+cleanup:
+    free(token_copy);
+    free(decoded_header);
     free(decoded_payload);
-    free(message);
-    free(valid_token);
+    free(signing_input);
+    free(calc_sig_b64);
 
-    if (result != JWT_SUCCESS) {
-        return result;
-    }
-
-    if (p->exp <= (unsigned long)time(nullptr)) {
-        return JWT_ERROR_TOKEN_EXPIRED;
-    }
-
-    return JWT_SUCCESS;
+    return err;
 }

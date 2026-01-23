@@ -89,12 +89,12 @@ bool gzip_decompress_file(FILE* infile, FILE* outfile) {
             switch (ret) {
                 case Z_NEED_DICT:
                     ret = Z_DATA_ERROR; /* fall through */
-                case Z_DATA_ERROR:
+                case Z_DATA_ERROR:      /* fall through */
                 case Z_MEM_ERROR:
                     (void)inflateEnd(&strm);
                     return false;
-                default:
-                    // continue;
+                default:  // NOLINT
+                          /* fall through */
             }
 
             fwrite(out, 1, CHUNK_SIZE - strm.avail_out, outfile);
@@ -125,7 +125,7 @@ bool gzip_compress_bytes(const uint8_t* data, size_t data_len, uint8_t** compres
     if (ret != Z_OK)
         return false;
 
-    *compressed_data = nullptr;
+    *compressed_data = NULL;
     *compressed_data_len = 0;
 
     strm.avail_in = data_len;
@@ -142,7 +142,7 @@ bool gzip_compress_bytes(const uint8_t* data, size_t data_len, uint8_t** compres
 
         have = CHUNK_SIZE - strm.avail_out;
         uint8_t* new_data = (uint8_t*)realloc(*compressed_data, *compressed_data_len + have);
-        if (new_data == nullptr) {
+        if (new_data == NULL) {
             deflateEnd(&strm);
             return false;
         }
@@ -175,7 +175,7 @@ bool gzip_decompress_bytes(const uint8_t* compressed_data, size_t compressed_dat
         return false;
     }
 
-    *uncompressed_data = nullptr;
+    *uncompressed_data = NULL;
     *uncompressed_data_len = 0;
 
     strm.avail_in = compressed_data_len;
@@ -205,7 +205,7 @@ bool gzip_decompress_bytes(const uint8_t* compressed_data, size_t compressed_dat
 
         have = CHUNK_SIZE - strm.avail_out;
         uint8_t* new_data = (uint8_t*)realloc(*uncompressed_data, *uncompressed_data_len + have);
-        if (new_data == nullptr) {
+        if (new_data == NULL) {
             (void)inflateEnd(&strm);
             fprintf(stderr, "Failed to allocate memory for uncompressed data\n");
             return false;

@@ -6,6 +6,6 @@ includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 Name: cipherkit
 Description: CipherKit cryptography and compression library
 Version: @PROJECT_VERSION@
-Requires: libssl libcrypto libsodium zlib libcjson
+Requires: libssl libcrypto libsodium zlib yyjson
 Libs: -L${libdir} -lcipherkit -lm -lpthread
 Cflags: -I${includedir}/cipherkit

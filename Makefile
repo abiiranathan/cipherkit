@@ -1,25 +1,6 @@
-# ===============================================================================
-# Project: CipherKit
-# File: Makefile
-# Author: Dr. Abiira Nathan <nabiira2by2@gmail.com>
-# Created on: 2024-09-29
-#
-# This Makefile is a convenience wrapper around CMake.
-# It delegates all build operations to the CMakeLists.txt file.
-#
-# Install dependencies using:
-# `sudo apt-get install build-essential libssl-dev libsodium-dev libz-dev libcjson-dev cmake`
-#
-# Build the library using `make`
-# Install the library using `sudo make install`
-# Uninstall the library using `sudo make uninstall`
-# Run tests using `make test`
-# Run memory checks using `make memcheck`
-# NB: You need to have `valgrind` installed to run memory checks.
-# ===============================================================================
-
 # Build directory for CMake
 BUILD_DIR = build
+BUILD_TESTS=ON
 
 # Default target - configure and build
 .PHONY: all
@@ -29,7 +10,7 @@ all: $(BUILD_DIR)
 # Configure CMake (create build directory and run cmake)
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
-	@cd $(BUILD_DIR) && cmake -DCMAKE_BUILD_TYPE=Release ..
+	@cd $(BUILD_DIR) && cmake -DBUILD_TESTS=$(BUILD_TESTS) -DCMAKE_BUILD_TYPE=Release ..
 
 # Install the library (requires sudo for system-wide installation)
 .PHONY: install
@@ -87,4 +68,4 @@ help:
 	@echo ""
 	@echo "Dependencies:"
 	@echo "  sudo apt-get install build-essential libssl-dev libsodium-dev"
-	@echo "  sudo apt-get install libz-dev libcjson-dev cmake valgrind"
+	@echo "  sudo apt-get install libz-dev yyjson-dev cmake valgrind"

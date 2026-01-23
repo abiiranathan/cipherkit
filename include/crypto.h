@@ -10,6 +10,7 @@ extern "C" {
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 #include <sodium.h>
+#include <stdbool.h>
 
 // Constants for the crypto library
 #define CRYPTO_SALT_LENGTH crypto_pwhash_SALTBYTES
@@ -36,7 +37,7 @@ uint8_t* crypto_decrypt(const uint8_t* data, size_t data_len, size_t* out_len,
                         const unsigned char* secret_key);
 
 // base64 encode raw bytes to a string. It can be used to encode the key.
-char* crypto_base64_encode(uint8_t* data, size_t data_len);
+char* crypto_base64_encode(const uint8_t* data, size_t data_len);
 
 // base64 decode raw bytes to a string. It can be used to decode the key.
 uint8_t* crypto_base64_decode(const char* data, size_t* out_len);

@@ -114,7 +114,7 @@ Parses the payload of a JWT without verifying its signature.
 
 int main() {
     JWTPayload payload = { "user123", 1699999999, "{\"role\":\"admin\"}" };
-    char* token = nullptr;
+    char* token = NULL;
 
     jwt_error_t result = jwt_token_create(&payload, "mysecretkey", &token);
 

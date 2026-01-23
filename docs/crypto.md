@@ -2,32 +2,27 @@
 
 This module provides cryptographic functions for generating cryptographically secure random numbers, password hashing, key generation, encryption, decryption, and random number generation using different algorithms like ChaCha20, Mersenne Twister, and Argon2id.
 
-It uses the C23 features like boolean, nullptr, constexpr.
-
 ## Table of Contents
 
 - [Crypto Module Documentation](#crypto-module-documentation)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
-  - [Initialization and Cleanup](#initialization-and-cleanup)
+  - [Key Generation](#key-generation)
     - [Functions:](#functions)
     - [Usage:](#usage)
-  - [Key Generation](#key-generation)
+  - [Encryption and Decryption](#encryption-and-decryption)
     - [Functions:](#functions-1)
     - [Usage:](#usage-1)
-  - [Encryption and Decryption](#encryption-and-decryption)
-    - [Functions:](#functions-2)
-    - [Usage:](#usage-2)
   - [Random Number Generation](#random-number-generation)
     - [ChaCha20-based Random Numbers](#chacha20-based-random-numbers)
     - [Mersenne Twister (Non-cryptographic Random Numbers)](#mersenne-twister-non-cryptographic-random-numbers)
-    - [Usage:](#usage-3)
+    - [Usage:](#usage-2)
   - [Password Hashing and Verification](#password-hashing-and-verification)
+    - [Functions:](#functions-2)
+    - [Usage:](#usage-3)
+  - [Base64 Encoding and Decoding](#base64-encoding-and-decoding)
     - [Functions:](#functions-3)
     - [Usage:](#usage-4)
-  - [Base64 Encoding and Decoding](#base64-encoding-and-decoding)
-    - [Functions:](#functions-4)
-    - [Usage:](#usage-5)
   - [License](#license)
 
 ## Installation
